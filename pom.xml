@@ -47,7 +47,7 @@
         <jaxrs.version>2.1.1</jaxrs.version>
         <jexl.version>3.1</jexl.version>
         <junit.version>4.13.1</junit.version>
-        <karaf.version>4.3.6</karaf.version>
+        <karaf.version>4.3.10</karaf.version>
         <log4j.version>2.17.2</log4j.version>
         <metrics.version>4.1.12.1</metrics.version>
         <mockito.version>2.18.0</mockito.version>
@@ -197,7 +197,120 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.commonjava.maven.plugins</groupId>
+                <artifactId>directory-maven-plugin</artifactId>
+                <version>1.0</version>
+                <executions>
+                    <execution>
+                        <id>directories</id>
+                        <goals><goal>directory-of</goal></goals>
+                        <phase>initialize</phase>
+                        <configuration>
+                            <property>my.toplevel.basedir</property>
+                            <project>
+                                <artifactId>opennms-resync-plugin</artifactId>
+                                <groupId>org.opennms.plugins.resync</groupId>
+                            </project>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.4</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+            <properties>
+                <disable.checkstyle>true</disable.checkstyle>
+                <package.version>${project.version}</package.version>
+                <!-- for release expect to pass in command line -DbuildNumber=XXX rpm > release  deb > bundle in version -->
+                <package.buildNumber>${buildNumber}</package.buildNumber>
+            </properties>
+        </profile>
+        <profile>
+            <id>checkstyle</id>
+            <activation>
+                <property>
+                    <name>!disable.checkstyle</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-checkstyle-plugin</artifactId>
+                        <version>3.3.1</version>
+                        <dependencies>
+                            <dependency>
+                                <groupId>com.github.sevntu-checkstyle</groupId>
+                                <artifactId>sevntu-checks</artifactId>
+                                <version>1.44.1</version>
+                            </dependency>
+                        </dependencies>
+                        <configuration>
+                            <configLocation>${my.toplevel.basedir}/src/main/resources/nms_checks.xml</configLocation>
+                            <suppressionsLocation>${my.toplevel.basedir}/src/main/resources/checkstyle-suppressions.xml</suppressionsLocation>
+                            <!-- <sourceDirectory> is needed so that checkstyle ignores the generated sources directory -->
+                            <sourceDirectories>${project.build.sourceDirectory}</sourceDirectories>
+                            <includeResources>true</includeResources>
+                            <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                            <includeTestResources>true</includeTestResources>
+                            <failsOnError>false</failsOnError>
+                            <consoleOutput>true</consoleOutput>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>check-license</id>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                                <phase>process-resources</phase>
+                                <configuration>
+                                    <configLocation>${my.toplevel.basedir}/src/main/resources/check-license.xml</configLocation>
+                                    <suppressionsLocation>${my.toplevel.basedir}/src/main/resources/license-suppressions.xml</suppressionsLocation>
+                                    <headerLocation>${my.toplevel.basedir}/src/main/resources/AGPL-LICENSE.regexp.txt</headerLocation>
+                                    <includeResources>false</includeResources>
+                                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                                    <includeTestResources>false</includeTestResources>
+                                    <sourceDirectories>${project.build.sourceDirectory}</sourceDirectories>
+                                    <failsOnError>false</failsOnError>
+                                    <consoleOutput>true</consoleOutput>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>check-style</id>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                                <phase>process-resources</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
     <repositories>
         <repository>
