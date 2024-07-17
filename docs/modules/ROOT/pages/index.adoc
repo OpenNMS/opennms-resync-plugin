@@ -1,0 +1,13 @@
+= User's Guide to the OpenNMS Resync Plugin
+:imagesdir: ../assets/images
+:!sectids:
+
+:description: Learn about the OpenNMS Resync plugin.
+
+[options="autowidth"]
+|===
+|Version:     |{full-display-version}
+|Last update: |{docdatetime}
+|===
+
+TODO

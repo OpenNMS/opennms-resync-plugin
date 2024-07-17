@@ -1,0 +1,6 @@
+= Configuration Properties
+:imagesdir: ../assets/images
+
+:description: TODO
+
+TODO

@@ -1,0 +1,6 @@
+= Introduction
+:imagesdir: ../assets/images
+
+:description: Read a brief overview of the OpenNMS Resync plugin.
+
+TODO

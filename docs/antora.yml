@@ -1,0 +1,8 @@
+name: resync
+version: '0.1.0-SNAPSHOT'
+title: Resync Plugin
+asciidoc:
+  attributes:
+    full-display-version: '1.0.0-SNAPSHOT'
+nav:
+  - modules/ROOT/nav.adoc

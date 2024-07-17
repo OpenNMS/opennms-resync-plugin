@@ -1,0 +1,204 @@
+version: 2.1
+
+executors:
+  build-executor:
+    docker:
+      - image: cimg/openjdk:11.0
+        environment:
+          MAVEN_OPTS: -Xmx1g
+
+orbs:
+  cloudsmith: cloudsmith/cloudsmith@1.0.5
+  sign-packages: opennms/sign-packages@2.3.0
+  branch-management: opennms/branch-management@2.3.0
+
+
+commands:
+  shallow-clone:
+      description: "Quick shallow checkout (if possible)"
+      steps:
+        - run:
+            name: git clone
+            command: |
+              install -d -m 700 ~/.ssh
+              ssh-keyscan github.com >> ~/.ssh/known_hosts
+              ssh-keyscan -p 443 ssh.github.com >> ~/.ssh/known_hosts
+              chmod 600 ~/.ssh/known_hosts
+              git clone --no-checkout --filter=tree:0 "${CIRCLE_REPOSITORY_URL}" .
+              if [ -n "${CIRCLE_TAG}" ]; then
+                git checkout --force "${CIRCLE_TAG}"
+                git reset --hard "${CIRCLE_SHA1}"
+              else
+                git checkout --force -B "${CIRCLE_BRANCH}" "${CIRCLE_SHA1}"
+              fi
+  build:
+    description: "Build Resync Plugin"
+    steps:
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "pom.xml" }}
+            # fallback to using the latest cache if no exact match is found
+            - v1-dependencies-
+      - run:
+          name: Compile source without tests
+          command: |
+            mvn -DskipITs=true -DskipTests=true clean install
+            mkdir ~/output
+            find ~/project -type f -regex ".*.kar" -exec cp {} ~/output \;
+      - store_artifacts:
+          path: ~/output
+          destination: artifact-file
+
+workflows:
+  build-deploy:
+    jobs:
+      - build:
+          context:
+            - gpg-signing
+          filters:
+            tags:
+              only:
+                - /^v.*/
+      - tests:
+          requires:
+            - build
+          filters:
+            tags:
+              only:
+                - /^v.*/
+      - publish-github-release:
+          context: 
+            - github-releases
+          requires:
+            - tests
+          filters:
+            tags:
+              only:
+                - /^v.*/
+            branches:
+              ignore: /.*/     
+      - merge:
+          requires:
+            - tests
+          filters:
+            branches:
+              only:
+               - /^release-.*/
+
+
+jobs:
+  build:
+    executor: build-executor
+    steps:
+      - shallow-clone
+      - run:
+          name: Check releasability
+          command: |
+            curl -L -O https://raw.githubusercontent.com/OpenNMS/opennms-repo/master/script/release-lint.sh
+            chmod 755 release-lint.sh
+            if [ -z "${CIRCLE_TAG}" ]; then
+              ./release-lint.sh -w
+            else
+              ./release-lint.sh
+            fi
+      - build
+      - save_cache:
+          paths:
+            - ~/.m2
+          key: v1-dependencies-{{ checksum "pom.xml" }}
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - .m2
+            - project
+            - output
+
+  tests:
+    executor: build-executor
+    steps:
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Run integration tests
+          command: |
+            mvn -DskipITs=false -DskipTests=false clean install test integration-test
+      - run:
+          name: Save test results
+          command: |
+            mkdir -p ~/junit/
+            find . -type f -regex ".*/target/failsafe-reports/.*xml" -exec cp {} ~/junit/ \;
+            find . -type f -regex ".*/target/surefire-reports/.*xml" -exec cp {} ~/junit/ \;
+          when: always
+
+      - store_test_results:
+          path: ~/junit
+
+  prepare-release:
+    executor: build-executor
+    working_directory: ~/project
+    steps:
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Gather artifacts
+          command: |
+              mkdir ~/output
+              # We need a better logic here
+              find ~/project -type f -regex ".*.kar" -exec cp {} ~/output \;
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - output
+
+  publish-github-release:
+    executor: build-executor
+    working_directory: ~/project
+    steps:
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Install GitHub CLI and Publish release on GitHub
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then 
+              echo "Skipping step as we don't have a tag!"
+            else 
+              tag=${CIRCLE_TAG}
+
+              # Install GitHub CLI
+              type -p curl >/dev/null || sudo apt install curl -y
+              curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+              && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+              && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+              && sudo apt update \
+              && sudo apt install gh -y
+              
+              gh release create $tag --title "$tag Release" --notes "$tag prerelease!" --prerelease --generate-notes 
+
+              gh release upload $tag ~/output/*.kar
+            fi
+
+  merge:
+    executor: build-executor
+    environment:
+      MAVEN_OPTS: -Xmx1024m
+
+    steps:
+      - add_ssh_keys:
+          fingerprints:
+            - "27:c8:b4:c2:27:cf:78:ae:5f:1f:3a:ee:d7:bb:e8:ca"
+
+      - shallow-clone
+      - branch-management/merge-branch:
+          committer_email: "cicd-system@opennms.com"
+          committer_name: "CI/CD System"
+          from: release-1.x
+          to: main
+
+      # make sure the build passes after merge
+      - build
+
+      - run:
+          name: "Push to Main"
+          command: git push --no-verify origin main:main
+
+

@@ -1,0 +1,36 @@
+*~
+.swp
+.*.swp
+.swp
+.gwt
+.gwt-tmp
+target
+.classpath
+.externalToolBuilders
+.project
+.settings
+.springBeans
+.vscode
+.DS_Store
+*.iml
+*.iws
+*.ipr
+.launch
+.*launch
+.idea
+.jqwik-database
+npm-debug.log
+yarn-error.log
+.factorypath
+
+# Ignore jenv local version files
+.java-version
+
+# Antora artifacts
+/build/
+/public/
+pom.xml.versionsBackup
+assembly/pom.xml.versionsBackup
+assembly/kar/pom.xml.versionsBackup
+karaf-features/pom.xml.versionsBackup
+plugin/pom.xml.versionsBackup

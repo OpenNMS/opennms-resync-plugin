@@ -1,0 +1,59 @@
+= Installation
+:imagesdir: ../assets/images
+
+:description: Learn how to install the OpenNMS Resync plugin.
+
+== Requirements
+The OpenNMS Resync Plugin can be used only with OpenNMS Horizon 31+ or OpenNMS Meridian 2023+.
+
+== Deployment via KAR file
+
+The installation of the plugin is simple.
+Just copy the provided KAR file to your OpenNMS `deploy` directory.
+The following example copies the KAR file `path/to/opennms-resync-plugin.kar` to the `deploy` directory assuming that OpenNMS is installed in `/opt/opennms`.
+
+[source, shell]
+----
+$ cp path/to/opennms-resync-plugin.kar /opt/opennms/deploy/
+----
+
+After this step you can install the plugin in the OpenNMS Karaf shell:
+
+[source, shell]
+----
+admin@opennms()> feature:install opennms-plugins-resync
+----
+
+[source, shell]
+----
+echo "opennms-plugins-resync wait-for-kar=opennms-plugins-resync" | sudo tee ${OPENNMS_HOME}/etc/featuresBoot.d/plugin-resync.boot
+----
+
+== Deploy from source
+
+After checking out the repository, you can build and install the plugin into your local Maven repository using the following:
+
+[source, shell]
+----
+$ mvn clean install
+----
+
+NOTE: To speed up development iterations, use `-Dcodegen.skip=true` to skip the regeneration of the client model classes.
+
+Now you can add the repository and install the feature in the OpenNMS Karaf shell.
+Replace `<VERSION>` with the version you built and want to deploy.
+
+[source, shell]
+----
+admin@opennms()> feature:repo-add mvn:org.opennms.plugins.resync/karaf-features/<VERSION>/xml
+admin@opennms()> feature:install opennms-plugins-resync
+----
+
+== Boot
+
+To ensure that the feature is activated on future service restarts, add the feature to a file in `featuresBoot.d`:
+
+[source, shell]
+----
+echo "opennms-plugins-resync wait-for-kar=opennms-plugins-resync" | sudo tee ${OPENNMS_HOME}/etc/featuresBoot.d/plugin-resync.boot
+----
