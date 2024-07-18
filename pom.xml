@@ -27,11 +27,6 @@
             <email>dustin@opennms.com</email>
         </developer>
         <developer>
-            <id>dherdt</id>
-            <name>Dmitri Herdt</name>
-            <email>dherdt@opennms.com</email>
-        </developer>
-        <developer>
             <id>christianpape</id>
             <name>Christian Pape</name>
             <email>christian@opennms.com</email>
