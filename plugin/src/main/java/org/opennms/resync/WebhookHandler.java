@@ -22,8 +22,6 @@
 
 package org.opennms.resync;
 
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
-
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
@@ -47,7 +45,7 @@ public interface WebhookHandler {
     @Consumes({MediaType.APPLICATION_JSON})
     Response trigger(@PathParam("location") final String location,
                      @PathParam("host") final String host,
-                     @RequestBody TriggerRequest request) throws ExecutionException, InterruptedException;
+                     TriggerRequest request) throws ExecutionException, InterruptedException;
 
     record TriggerRequest(
             TriggerService.Request.Mode mode,

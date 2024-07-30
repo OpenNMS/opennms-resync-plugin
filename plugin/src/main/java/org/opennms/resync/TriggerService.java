@@ -22,7 +22,7 @@
 
 package org.opennms.resync;
 
-import org.opennms.core.utils.InetAddressUtils;
+import com.google.common.net.InetAddresses;
 import org.opennms.netmgt.config.api.SnmpAgentConfigFactory;
 import org.opennms.netmgt.snmp.proxy.LocationAwareSnmpClient;
 
@@ -87,7 +87,7 @@ public class TriggerService {
 
         private Request(final Builder builder) {
             this.location = Objects.requireNonNull(builder.location);
-            this.host = InetAddressUtils.addr(Objects.requireNonNull(builder.host));
+            this.host = InetAddresses.forString(Objects.requireNonNull(builder.host));
             this.mode = Objects.requireNonNull(builder.mode);
         }
 

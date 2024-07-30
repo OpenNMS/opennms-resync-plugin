@@ -76,6 +76,8 @@
                                 <descriptor>mvn:org.apache.karaf.features/framework/${karaf.version}/xml/features</descriptor>
                                 <descriptor>mvn:org.apache.karaf.features/standard/${karaf.version}/xml/features</descriptor>
                                 <descriptor>mvn:org.opennms.integration.api/karaf-features/${opennms.api.version}/xml</descriptor>
+                                <descriptor>mvn:org.opennms.karaf/opennms/${opennms.version}/xml/features</descriptor>
+                                <descriptor>mvn:org.opennms.karaf/opennms/${opennms.version}/xml/spring-legacy</descriptor>
                                 <descriptor>file:${project.build.directory}/classes/features.xml</descriptor>
                             </descriptors>
                             <distribution>org.apache.karaf.features:framework</distribution>
@@ -84,7 +86,6 @@
                             </framework>
                             <features>
                                 <feature>opennms-plugins-resync</feature>
-                                <feature>okhttp</feature>
                             </features>
                         </configuration>
                     </execution>
@@ -106,6 +107,15 @@
             <groupId>org.opennms.integration.api</groupId>
             <artifactId>karaf-features</artifactId>
             <version>${opennms.api.version}</version>
+            <type>xml</type>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.opennms.karaf</groupId>
+            <artifactId>opennms</artifactId>
+            <version>${opennms.version}</version>
+            <classifier>features</classifier>
             <type>xml</type>
             <scope>provided</scope>
         </dependency>
