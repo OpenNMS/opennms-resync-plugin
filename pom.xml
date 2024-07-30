@@ -285,7 +285,7 @@
                                 <configuration>
                                     <configLocation>${my.toplevel.basedir}/src/main/resources/check-license.xml</configLocation>
                                     <suppressionsLocation>${my.toplevel.basedir}/src/main/resources/license-suppressions.xml</suppressionsLocation>
-                                    <headerLocation>${my.toplevel.basedir}/src/main/resources/AGPL-LICENSE.regexp.txt</headerLocation>
+                                    <headerLocation>${my.toplevel.basedir}/src/main/resources/AGPL-LICENSE.txt</headerLocation>
                                     <includeResources>false</includeResources>
                                     <includeTestSourceDirectory>true</includeTestSourceDirectory>
                                     <includeTestResources>false</includeTestResources>
