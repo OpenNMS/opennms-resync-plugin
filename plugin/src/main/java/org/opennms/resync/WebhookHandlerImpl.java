@@ -27,13 +27,21 @@
  *******************************************************************************/
 package org.opennms.resync;
 
-import javax.ws.rs.core.Response;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.ws.rs.core.Response;
+import java.util.Objects;
+import java.util.concurrent.ExecutionException;
+
 public class WebhookHandlerImpl implements WebhookHandler {
     private static final Logger LOG = LoggerFactory.getLogger(WebhookHandlerImpl.class);
+
+    private final TriggerService triggerService;
+
+    public WebhookHandlerImpl(final TriggerService triggerService) {
+        this.triggerService = Objects.requireNonNull(triggerService);
+    }
 
     @Override
     public Response ping() {
@@ -41,8 +49,21 @@ public class WebhookHandlerImpl implements WebhookHandler {
     }
 
     @Override
-    public Response handleWebhook(String body) {
-        LOG.debug("Got payload: {}", body);
+    public Response trigger(final String location,
+                            final String host,
+                            final TriggerRequest request) throws ExecutionException, InterruptedException {
+        // TODO: Extract default mode from node meta-data
+
+        final var result = this.triggerService.trigger(TriggerService.Request.builder()
+                .location(location)
+                .host(host)
+                .mode(request.mode())
+                .build());
+
+        if (request.sync()) {
+            result.get();
+        }
+
         return Response.ok().build();
     }
 }

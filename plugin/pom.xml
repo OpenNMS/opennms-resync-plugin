@@ -72,6 +72,11 @@
             <artifactId>slf4j-api</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.opennms.features.collection</groupId>
+            <artifactId>org.opennms.features.collection.client-rpc</artifactId>
+            <version>${opennms.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.apache.karaf.shell</groupId>
             <artifactId>org.apache.karaf.shell.core</artifactId>
             <version>${karaf.version}</version>

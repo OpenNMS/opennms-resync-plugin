@@ -27,40 +27,62 @@
  *******************************************************************************/
 package org.opennms.resync.shell;
 
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-
 import org.apache.karaf.shell.api.action.Action;
+import org.apache.karaf.shell.api.action.Argument;
 import org.apache.karaf.shell.api.action.Command;
+import org.apache.karaf.shell.api.action.Option;
 import org.apache.karaf.shell.api.action.lifecycle.Reference;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
-import org.opennms.resync.TopologyForwarder;
-import org.opennms.resync.model.Topology;
+import org.opennms.integration.api.v1.dao.NodeDao;
+import org.opennms.resync.TriggerService;
 
-@Command(scope = "opennms-resync", name = "push-topology", description = "Push the topology")
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+@Command(scope = "opennms-resync", name = "trigger", description = "Trigger a re-sync")
 @Service
-public class TopologyCommand implements Action {
+public class TriggerCommand implements Action {
 
     @Reference
-    private TopologyForwarder forwarder;
+    private TriggerService triggerService;
+
+    @Reference
+    private NodeDao nodeDao;
+
+    @Argument(name = "host", required = true)
+    private String host;
+
+    @Option(name = "location")
+    private String location;
+
+    @Option(name = "mode")
+    private TriggerService.Request.Mode mode;
 
     @Override
     public Object execute() {
-        System.out.println("Forwarding topologies...");
-        final CompletableFuture<List<Topology>> future = forwarder.forwardTopologies();
-        future.whenComplete((topologies,ex) -> {
-            if (ex == null) {
-                System.out.printf("Successfully forwarded %d topologies.", topologies.size());
-            } else {
-                System.out.println("Error occurred forwarding topologies: " + ex);
-                ex.printStackTrace();
+        final var request = TriggerService.Request.builder()
+                .location(this.location != null ? this.location : this.nodeDao.getDefaultLocationName())
+                .host(this.host)
+                .mode(this.mode)
+                .build();
+
+        final var result = this.triggerService.trigger(request);
+
+        while (!result.isDone()) {
+            try {
+                result.get(1, TimeUnit.SECONDS);
+
+            } catch (TimeoutException e) {
+                System.out.print(".");
+
+            } catch (final InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
             }
-        });
-        try {
-            future.get();
-        } catch (Exception e) {
-            // pass
         }
+
+        System.out.println("Done");
+
         return null;
     }
 }
