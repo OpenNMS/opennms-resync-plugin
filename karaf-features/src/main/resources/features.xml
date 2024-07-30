@@ -7,8 +7,9 @@
 
         <feature version="${opennms.api.version}" dependency="true">opennms-integration-api</feature>
 
-        <feature version="${opennms.version}" dependency="true">opennms-collection-api</feature>
+        <feature version="${opennms.version}" dependency="true">opennms-snmp</feature>
         <feature version="${opennms.version}" dependency="true">opennms-config-api</feature>
+        <feature version="${opennms.version}" dependency="true">opennms-config-impl</feature>
 
         <bundle dependency="true">mvn:org.apache.commons/commons-jexl3/${jexl.version}</bundle>
         <bundle dependency="true">mvn:io.dropwizard.metrics/metrics-core/${metrics.version}</bundle>

@@ -20,7 +20,7 @@ mvn clean install
 
 From the OpenNMS Karaf shell:
 ```
-feature:repo-add mvn:org.opennms.plugins.resync/karaf-features/0.1.0-SNAPSHOT/xml
+feature:repo-add mvn:org.opennms.plugins.resync/karaf-features/1.0.0-SNAPSHOT/xml
 feature:install opennms-plugins-resync
 ```
 
