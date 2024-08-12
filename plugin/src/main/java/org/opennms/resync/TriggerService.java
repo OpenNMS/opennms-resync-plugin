@@ -72,8 +72,9 @@ public class TriggerService {
                             }
 
                             this.stateForwarder.postStop();
-                        });
 
+                            result.complete(null);
+                        });
             }
 
             case SET -> {
