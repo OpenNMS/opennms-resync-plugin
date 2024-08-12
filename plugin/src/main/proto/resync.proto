@@ -1,0 +1,81 @@
+// Mostly cloned from opennms/features/kafka/producer/src/main/proto/opennms-kafka-producer.proto
+// with slight modifications to support re-sync
+
+syntax = "proto3";
+option java_package = "org.opennms.resync.proto";
+
+enum Severity {
+  INDETERMINATE = 0;
+  CLEARED = 1;
+  NORMAL = 2;
+  WARNING = 3;
+  MINOR = 4;
+  MAJOR = 5;
+  CRITICAL = 6;
+}
+
+message NodeCriteria {
+  uint64 id = 1;
+  string foreign_source = 2;
+  string foreign_id = 3;
+  string node_label = 4;
+  string location = 5;
+}
+
+message EventParameter {
+  string name = 1;
+  string value = 2;
+  string type = 3;
+}
+
+message Event {
+  uint64 id = 1;
+  string uei = 2;
+  string label = 3;
+  uint64 time = 4;
+  string source = 5;
+  repeated EventParameter parameter = 6;
+  uint64 create_time = 7;
+  string description = 8;
+  string log_message = 9;
+  Severity severity = 10;
+  bool log = 11;
+  bool display = 12;
+  NodeCriteria node_criteria = 13;
+  string ip_address = 14;
+  string dist_poller = 15;
+  //SnmpInfo snmpInfo = 16;
+}
+
+message Alarm {
+  uint64 id = 1;
+  string uei = 2;
+  NodeCriteria node_criteria = 3;
+  string ip_address = 4;
+  string service_name = 5;
+  string reduction_key = 6;
+  enum Type {
+    PROBLEM_WITH_CLEAR = 0;
+    CLEAR = 1;
+    PROBLEM_WITHOUT_CLEAR = 2;
+  }
+  Type type = 7;
+  uint64 count = 8;
+  Severity severity = 9;
+  uint64 first_event_time = 10;
+  string description = 11;
+  string log_message = 12;
+  string ack_user = 13;
+  uint64 ack_time = 14;
+  Event last_event = 15;
+  uint64 last_event_time = 16;
+  uint32 if_index = 17;
+  string operator_instructions = 18;
+  string clear_key = 19;
+  string managed_object_instance = 20;
+  string managed_object_type = 21;
+  repeated Alarm relatedAlarm = 22;
+  string trouble_ticket_id = 23;
+  //TroubleTicketState trouble_ticket_state = 24;
+  uint64 last_update_time = 25;
+}

@@ -24,9 +24,14 @@ package org.opennms.resync;
 
 import com.google.common.net.InetAddresses;
 import org.opennms.netmgt.config.api.SnmpAgentConfigFactory;
+import org.opennms.netmgt.snmp.SnmpObjId;
+import org.opennms.netmgt.snmp.SnmpRowResult;
+import org.opennms.netmgt.snmp.TableTracker;
 import org.opennms.netmgt.snmp.proxy.LocationAwareSnmpClient;
 
 import java.net.InetAddress;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
@@ -37,9 +42,14 @@ public class TriggerService {
     private final LocationAwareSnmpClient snmpClient;
     private final SnmpAgentConfigFactory snmpAgentConfigFactory;
 
-    public TriggerService(final LocationAwareSnmpClient snmpClient, SnmpAgentConfigFactory snmpAgentConfigFactory) {
+    private final StateForwarder stateForwarder;
+
+    public TriggerService(final LocationAwareSnmpClient snmpClient,
+                          final SnmpAgentConfigFactory snmpAgentConfigFactory,
+                          final StateForwarder stateForwarder) {
         this.snmpClient = Objects.requireNonNull(snmpClient);
         this.snmpAgentConfigFactory = Objects.requireNonNull(snmpAgentConfigFactory);
+        this.stateForwarder = Objects.requireNonNull(stateForwarder);
     }
 
     public Future<Void> trigger(final Request request) {
@@ -50,34 +60,30 @@ public class TriggerService {
 
         switch (request.mode) {
             case GET -> {
-                this.postStart();
 
                 // TODO: Take a walk on the wild side
-                // this.snmpClient.walk(agent, ...)
+                this.snmpClient.walk(agent, new AlarmTableTracker())
+                        .execute()
+                        .thenAccept(tracker -> {
+                            this.stateForwarder.postStart();
 
-                this.postStop();
+                            for (final var alarm : tracker.alarms) {
+                                this.stateForwarder.postAlarm(alarm);
+                            }
+
+                            this.stateForwarder.postStop();
+                        });
+
             }
 
             case SET -> {
                 // TODO: Oh boy - send a set command
                 // TODO: Register a timer for timeout handling
-                // TODO: Do something with the incoming events here?
+                // TODO: Do something with the incoming events here or have a separate event handler for the tracking?
             }
         }
 
         return result;
-    }
-
-    private void postStart() {
-
-    }
-
-    private void postStop() {
-
-    }
-
-    private void postStatus() {
-
     }
 
     public static class Request {
@@ -125,6 +131,40 @@ public class TriggerService {
 
         public enum Mode {
             GET, SET
+        }
+    }
+
+    private static class AlarmTableTracker extends TableTracker {
+        // TODO: Can we somehow auto-generate this?
+        // TODO: Convert from row to alarm model using mapstruct?
+
+        private final static SnmpObjId CURRENT_ALARM_TABLE = SnmpObjId.get(".1.3.6.1.4.1.3902.4101.1.3");
+        private final static SnmpObjId CURRENT_ALARM_TABLE_ALARM_ID = SnmpObjId.get(CURRENT_ALARM_TABLE, "1");
+        private final static SnmpObjId CURRENT_ALARM_TABLE_EVENT_TIME = SnmpObjId.get(CURRENT_ALARM_TABLE, "3");
+        private final static SnmpObjId CURRENT_ALARM_TABLE_EVENT_TYPE = SnmpObjId.get(CURRENT_ALARM_TABLE, "4");
+        private final static SnmpObjId CURRENT_ALARM_TABLE_PROBLEM_CAUSE = SnmpObjId.get(CURRENT_ALARM_TABLE, "5");
+
+        private final static SnmpObjId[] CURRENT_ALARM_TABLE_ELEMENTS = new SnmpObjId[] {
+                CURRENT_ALARM_TABLE_ALARM_ID,
+                CURRENT_ALARM_TABLE_EVENT_TIME,
+                CURRENT_ALARM_TABLE_EVENT_TYPE,
+                CURRENT_ALARM_TABLE_PROBLEM_CAUSE,
+        };
+
+        public List<org.opennms.resync.proto.Resync.Alarm> alarms = new ArrayList<>();
+
+        public AlarmTableTracker() {
+            super(CURRENT_ALARM_TABLE_ELEMENTS);
+        }
+
+        @Override
+        public void rowCompleted(SnmpRowResult row) {
+            super.rowCompleted(row);
+
+            this.alarms.add(org.opennms.resync.proto.Resync.Alarm.newBuilder()
+                    .setId(row.getValue(CURRENT_ALARM_TABLE_ALARM_ID).toLong())
+                    // TODO: Convert more properties
+                    .build());
         }
     }
 }

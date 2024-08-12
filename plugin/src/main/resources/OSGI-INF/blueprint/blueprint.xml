@@ -20,9 +20,14 @@
                interface="org.opennms.netmgt.config.api.SnmpAgentConfigFactory"
                availability="optional"/>
 
+    <bean id="stateForwarder" class="org.opennms.resync.StateForwarder">
+
+    </bean>
+
     <bean id="trigger" class="org.opennms.resync.TriggerService">
         <argument ref="snmpClient"/>
         <argument ref="snmpAgentConfigFactory"/>
+        <argument ref="stateForwarder"/>
     </bean>
 
     <!-- Build and expose the JAX-RS annotated webhook handler.
