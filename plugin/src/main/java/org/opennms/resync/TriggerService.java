@@ -22,37 +22,50 @@
 
 package org.opennms.resync;
 
-import com.google.common.net.InetAddresses;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
+import org.opennms.integration.api.v1.dao.InterfaceToNodeCache;
+import org.opennms.integration.api.v1.events.EventForwarder;
+import org.opennms.integration.api.v1.model.immutables.ImmutableInMemoryEvent;
 import org.opennms.netmgt.config.api.SnmpAgentConfigFactory;
 import org.opennms.netmgt.snmp.SnmpObjId;
 import org.opennms.netmgt.snmp.SnmpRowResult;
 import org.opennms.netmgt.snmp.TableTracker;
 import org.opennms.netmgt.snmp.proxy.LocationAwareSnmpClient;
+import org.opennms.netmgt.snmp.snmp4j.Snmp4JValueFactory;
 
 import java.net.InetAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 
+@RequiredArgsConstructor
 public class TriggerService {
     // TODO: Maintain a global table of locks to track which system is in progress and disallow multiple concurring re-syncs
 
+    private final static SnmpObjId OID_NBI_GET_ACTIVE_ALARMS = SnmpObjId.get(".1.3.6.1.4.1.28458.1.26.3.1.3.2.0");
+
+    @NonNull
     private final LocationAwareSnmpClient snmpClient;
+
+    @NonNull
     private final SnmpAgentConfigFactory snmpAgentConfigFactory;
 
-    private final StateForwarder stateForwarder;
+    @NonNull
+    private final EventForwarder eventForwarder;
 
-    public TriggerService(final LocationAwareSnmpClient snmpClient,
-                          final SnmpAgentConfigFactory snmpAgentConfigFactory,
-                          final StateForwarder stateForwarder) {
-        this.snmpClient = Objects.requireNonNull(snmpClient);
-        this.snmpAgentConfigFactory = Objects.requireNonNull(snmpAgentConfigFactory);
-        this.stateForwarder = Objects.requireNonNull(stateForwarder);
-    }
+    @NonNull
+    private final InterfaceToNodeCache interfaceToNodeCache;
 
     public Future<Void> trigger(final Request request) {
+        final var nodeId = this.interfaceToNodeCache.getFirstNodeId(request.location, request.host)
+                .orElseThrow(() -> new NoSuchElementException("No such node: " + request.host + " at " + request.location));
+
         final var agent = this.snmpAgentConfigFactory.getAgentConfig(request.host, request.location);
         // TODO: Error handling?
 
@@ -60,75 +73,104 @@ public class TriggerService {
 
         switch (request.mode) {
             case GET -> {
-
-                // TODO: Take a walk on the wild side
                 this.snmpClient.walk(agent, new AlarmTableTracker())
                         .execute()
                         .thenAccept(tracker -> {
-                            this.stateForwarder.postStart();
+                            this.eventForwarder.sendSync(ImmutableInMemoryEvent.newBuilder()
+                                    .setUei(EventHandler.UEI_RESYNC_STARTED)
+                                    .setNodeId(nodeId)
+                                    .setInterface(request.host)
+                                    .build());
 
                             for (final var alarm : tracker.alarms) {
-                                this.stateForwarder.postAlarm(alarm);
+                                this.eventForwarder.sendSync(ImmutableInMemoryEvent.newBuilder()
+                                        .setUei(EventHandler.UEI_RESYNC_ALARM)
+                                        .setNodeId(nodeId)
+                                        .setInterface(request.host)
+                                        .build());
+
+                                // TODO: Add alarm data
                             }
 
-                            this.stateForwarder.postStop();
+                            this.eventForwarder.sendSync(ImmutableInMemoryEvent.newBuilder()
+                                    .setUei(EventHandler.UEI_RESYNC_FINISHED)
+                                    .setNodeId(nodeId)
+                                    .setInterface(request.host)
+                                    .build());
 
                             result.complete(null);
                         });
             }
 
             case SET -> {
-                // TODO: Oh boy - send a set command
-                // TODO: Register a timer for timeout handling
-                // TODO: Do something with the incoming events here or have a separate event handler for the tracking?
+                final var response = this.snmpClient.set(agent,
+                                OID_NBI_GET_ACTIVE_ALARMS,
+                                new Snmp4JValueFactory().getOctetString("all".getBytes(StandardCharsets.UTF_8)))
+                        .withLocation(request.location)
+                        .execute();
+
+                response.whenComplete((ok, ex) -> {
+                    if (ex != null) {
+                        result.completeExceptionally(ex);
+                    } else {
+                        result.complete(null);
+                    }
+                });
             }
         }
 
         return result;
     }
 
+    @Data
+    @Builder(builderClassName = "Builder")
     public static class Request {
-        public final String location;
-        public final InetAddress host;
-        public final Mode mode;
+        @NonNull
+        private final String location;
 
-        private Request(final Builder builder) {
-            this.location = Objects.requireNonNull(builder.location);
-            this.host = InetAddresses.forString(Objects.requireNonNull(builder.host));
-            this.mode = Objects.requireNonNull(builder.mode);
-        }
+        @NonNull
+        private final InetAddress host;
 
+        @NonNull
+        private final Mode mode;
+
+        //        private Request(final Builder builder) {
+//            this.location = Objects.requireNonNull(builder.location);
+//            this.host = InetAddresses.forString(Objects.requireNonNull(builder.host));
+//            this.mode = Objects.requireNonNull(builder.mode);
+//        }
+//
         public static class Builder {
-            private String location;
-            private String host;
-            private Mode mode = Mode.GET;
-
-            private Builder() {
-            }
-
-            public Builder location(final String location) {
-                this.location = location;
-                return this;
-            }
-
-            public Builder host(final String host) {
-                this.host = host;
-                return this;
-            }
-
-            public Builder mode(final Mode mode) {
-                this.mode = mode;
-                return this;
-            }
-
-            public Request build() {
-                return new Request(this);
-            }
+//            private String location;
+//            private String host;
+//            private Mode mode = Mode.GET;
+//
+//            private Builder() {
+//            }
+//
+//            public Builder location(final String location) {
+//                this.location = location;
+//                return this;
+//            }
+//
+//            public Builder host(final String host) {
+//                this.host = host;
+//                return this;
+//            }
+//
+//            public Builder mode(final Mode mode) {
+//                this.mode = mode;
+//                return this;
+//            }
+//
+//            public Request build() {
+//                return new Request(this);
+//            }
         }
-
-        public static Builder builder() {
-            return new Builder();
-        }
+//
+//        public static Builder builder() {
+//            return new Builder();
+//        }
 
         public enum Mode {
             GET, SET
@@ -145,7 +187,7 @@ public class TriggerService {
         private final static SnmpObjId CURRENT_ALARM_TABLE_EVENT_TYPE = SnmpObjId.get(CURRENT_ALARM_TABLE, "4");
         private final static SnmpObjId CURRENT_ALARM_TABLE_PROBLEM_CAUSE = SnmpObjId.get(CURRENT_ALARM_TABLE, "5");
 
-        private final static SnmpObjId[] CURRENT_ALARM_TABLE_ELEMENTS = new SnmpObjId[] {
+        private final static SnmpObjId[] CURRENT_ALARM_TABLE_ELEMENTS = new SnmpObjId[]{
                 CURRENT_ALARM_TABLE_ALARM_ID,
                 CURRENT_ALARM_TABLE_EVENT_TIME,
                 CURRENT_ALARM_TABLE_EVENT_TYPE,

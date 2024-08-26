@@ -44,6 +44,7 @@
         <junit.version>4.13.1</junit.version>
         <karaf.version>4.3.10</karaf.version>
         <log4j.version>2.17.2</log4j.version>
+        <lombok.version>1.18.34</lombok.version>
         <metrics.version>4.1.12.1</metrics.version>
         <mockito.version>2.18.0</mockito.version>
         <okhttp.version>3.10.0</okhttp.version>
@@ -55,6 +56,7 @@
         <osgi.compendium.version>5.0.0</osgi.compendium.version>
         <osgi.enterprise.version>5.0.0</osgi.enterprise.version>
         <slf4j-api.version>1.7.30</slf4j-api.version>
+        <pkts.version>3.0.10</pkts.version>
         <protobuf.version>3.12.0</protobuf.version>
     </properties>
 

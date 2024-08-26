@@ -24,7 +24,7 @@ package org.opennms.resync;
 
 import org.opennms.resync.proto.Resync;
 
-public class StateForwarder {
+public class AlarmForwarder {
 
     public void postStart() {
 

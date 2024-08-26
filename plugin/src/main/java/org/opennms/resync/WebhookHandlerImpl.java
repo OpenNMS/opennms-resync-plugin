@@ -22,10 +22,12 @@
 
 package org.opennms.resync;
 
+import com.google.common.net.InetAddresses;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.ws.rs.core.Response;
+import java.net.InetAddress;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
@@ -49,9 +51,17 @@ public class WebhookHandlerImpl implements WebhookHandler {
                             final TriggerRequest request) throws ExecutionException, InterruptedException {
         // TODO: Extract default mode from node meta-data
 
+        final InetAddress hostAddress;
+        try {
+            hostAddress = InetAddresses.forString(host);
+        } catch (final IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+
         final var result = this.triggerService.trigger(TriggerService.Request.builder()
                 .location(location)
-                .host(host)
+                .host(hostAddress)
                 .mode(request.mode())
                 .build());
 

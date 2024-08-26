@@ -18,6 +18,9 @@
         <bundle dependency="true">mvn:com.google.protobuf/protobuf-java/${protobuf.version}</bundle>
         <bundle dependency="true">mvn:com.google.protobuf/protobuf-java-util/${protobuf.version}</bundle>
 
+        <bundle dependency="true">wrap:mvn:io.pkts/pkts-core/${pkts.version}</bundle>
+        <bundle dependency="true">wrap:mvn:io.pkts/pkts-buffers/${pkts.version}</bundle>
+
         <bundle>mvn:org.opennms.plugins.resync/resync-plugin/${project.version}</bundle>
     </feature>
 </features>

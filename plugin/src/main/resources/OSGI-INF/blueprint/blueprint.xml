@@ -1,37 +1,39 @@
-<blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-           xmlns:cm="http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.1.0"
-           xsi:schemaLocation="http://www.osgi.org/xmlns/blueprint/v1.0.0
-                http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd
-                http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.1.0
-                http://aries.apache.org/schemas/blueprint-cm/blueprint-cm-1.1.0.xsd">
-
-<!--    &lt;!&ndash; Configuration stored in $OPENNMS_HOME/etc/org.opennms.resync.cfg file &ndash;&gt;-->
-<!--    <cm:property-placeholder id="resyncPluginProperties" persistent-id="org.opennms.resync" update-strategy="reload">-->
-<!--        <cm:default-properties>-->
-<!--            <cm:property name="url" value="http://127.0.0.1:8888/target"/>-->
-<!--            <cm:property name="apiKey" value="TOKEN"/>-->
-<!--        </cm:default-properties>-->
-<!--    </cm:property-placeholder>-->
-
+<blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://www.osgi.org/xmlns/blueprint/v1.0.0 https://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd">
     <reference id="snmpClient"
                interface="org.opennms.netmgt.snmp.proxy.LocationAwareSnmpClient"
                availability="optional"/>
+
     <reference id="snmpAgentConfigFactory"
                interface="org.opennms.netmgt.config.api.SnmpAgentConfigFactory"
                availability="optional"/>
 
-    <bean id="stateForwarder" class="org.opennms.resync.StateForwarder">
+    <reference id="eventForwarder"
+               interface="org.opennms.integration.api.v1.events.EventForwarder"
+               availability="optional"/>
 
+    <reference id="eventSubscriptionService"
+               interface="org.opennms.integration.api.v1.events.EventSubscriptionService"
+               availability="optional"/>
+
+    <bean id="alarmForwarder" class="org.opennms.resync.AlarmForwarder">
+    </bean>
+
+    <bean id="eventHandler" class="org.opennms.resync.EventHandler"
+          init-method="start"
+          destroy-method="stop">
+        <argument ref="eventSubscriptionService"/>
     </bean>
 
     <bean id="trigger" class="org.opennms.resync.TriggerService">
         <argument ref="snmpClient"/>
         <argument ref="snmpAgentConfigFactory"/>
-        <argument ref="stateForwarder"/>
+        <argument ref="alarmForwarder"/>
+        <argument ref="eventForwarder"/>
     </bean>
+    <service interface="org.opennms.resync.TriggerService" ref="trigger"/>
 
-    <!-- Build and expose the JAX-RS annotated webhook handler.
-         This will automatically mount the endpoint over the REST API. -->
     <bean id="webhookHandlerImpl" class="org.opennms.resync.WebhookHandlerImpl">
         <argument ref="trigger"/>
     </bean>
@@ -41,9 +43,7 @@
         </service-properties>
     </service>
 
-<!--    &lt;!&ndash; Expose our custom event definitions bundled in the .jar &ndash;&gt;-->
-<!--    <service interface="org.opennms.integration.api.v1.config.events.EventConfExtension">-->
-<!--        <bean class="org.opennms.resync.EventConfExtension"/>-->
-<!--    </service>-->
-
+    <service interface="org.opennms.integration.api.v1.config.events.EventConfExtension">
+        <bean class="org.opennms.resync.EventConfExtension"/>
+    </service>
 </blueprint>

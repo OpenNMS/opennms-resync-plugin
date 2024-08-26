@@ -22,6 +22,7 @@
 
 package org.opennms.resync.shell;
 
+import com.google.common.net.InetAddresses;
 import org.apache.karaf.shell.api.action.Action;
 import org.apache.karaf.shell.api.action.Argument;
 import org.apache.karaf.shell.api.action.Command;
@@ -31,6 +32,8 @@ import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.opennms.integration.api.v1.dao.NodeDao;
 import org.opennms.resync.TriggerService;
 
+import javax.ws.rs.core.Response;
+import java.net.InetAddress;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -56,9 +59,11 @@ public class TriggerCommand implements Action {
 
     @Override
     public Object execute() {
+        final var hostAddress = InetAddresses.forString(this.host);
+
         final var request = TriggerService.Request.builder()
                 .location(this.location != null ? this.location : this.nodeDao.getDefaultLocationName())
-                .host(this.host)
+                .host(hostAddress)
                 .mode(this.mode)
                 .build();
 
