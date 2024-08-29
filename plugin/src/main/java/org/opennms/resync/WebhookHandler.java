@@ -22,6 +22,12 @@
 
 package org.opennms.resync;
 
+import lombok.Builder;
+import lombok.Data;
+import lombok.NonNull;
+import lombok.Value;
+import lombok.extern.jackson.Jacksonized;
+
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
@@ -30,6 +36,7 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.net.InetAddress;
 import java.util.concurrent.ExecutionException;
 
 @Path("resync")
@@ -40,16 +47,26 @@ public interface WebhookHandler {
     Response ping();
 
     @POST
-    @Path("/trigger/{location}/{host}")
+    @Path("/trigger")
     @Produces({MediaType.APPLICATION_JSON})
     @Consumes({MediaType.APPLICATION_JSON})
-    Response trigger(@PathParam("location") final String location,
-                     @PathParam("host") final String host,
-                     TriggerRequest request) throws ExecutionException, InterruptedException;
+    Response trigger(TriggerRequest request) throws ExecutionException, InterruptedException;
 
-    record TriggerRequest(
-            TriggerService.Request.Mode mode,
-            boolean sync
-    ) {
+    @Value
+    @Builder
+    @Jacksonized
+    class TriggerRequest {
+
+        @Builder.Default
+        String location = "Default";
+
+        @NonNull
+        String host;
+
+        @Builder.Default
+        TriggerService.Mode mode = null;
+
+        @Builder.Default
+        boolean sync = false;
     }
 }

@@ -25,34 +25,36 @@ package org.opennms.resync;
 import lombok.Data;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import org.opennms.integration.api.v1.events.EventForwarder;
-import org.opennms.integration.api.v1.events.EventListener;
-import org.opennms.integration.api.v1.events.EventSubscriptionService;
-import org.opennms.integration.api.v1.model.InMemoryEvent;
-import org.opennms.integration.api.v1.model.immutables.ImmutableInMemoryEvent;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.Value;
+import lombok.extern.slf4j.Slf4j;
+import org.opennms.netmgt.events.api.EventForwarder;
+import org.opennms.netmgt.events.api.EventListener;
+import org.opennms.netmgt.events.api.EventSubscriptionService;
+import org.opennms.netmgt.events.api.model.IEvent;
+import org.opennms.netmgt.model.events.EventBuilder;
+import org.opennms.resync.proto.Resync;
 
 import java.net.InetAddress;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static org.opennms.resync.constants.Events.EVENT_SOURCE;
+import static org.opennms.resync.constants.Events.UEI_RESYNC_ALARM;
+import static org.opennms.resync.constants.Events.UEI_RESYNC_FINISHED;
+import static org.opennms.resync.constants.Events.UEI_RESYNC_STARTED;
+import static org.opennms.resync.constants.Events.UEI_RESYNC_TIMEOUT;
+
 @RequiredArgsConstructor
+@Slf4j
 public class EventHandler implements EventListener {
 
-    private static final Logger LOG = LoggerFactory.getLogger(EventHandler.class);
-
     private static final Timer TIMER = new Timer();
-
-    public static final String UEI_RESYNC_STARTED = "uei.opennms.org/resync/started";
-    public static final String UEI_RESYNC_FINISHED = "uei.opennms.org/resync/finished";
-    public static final String UEI_RESYNC_TIMEOUT = "uei.opennms.org/resync/timeout";
-    public static final String UEI_RESYNC_ALARM = "uei.opennms.org/resync/alarm";
 
     private static final List<String> UEIS = List.of(
             UEI_RESYNC_STARTED,
@@ -61,7 +63,7 @@ public class EventHandler implements EventListener {
             UEI_RESYNC_ALARM
     );
 
-    private static final Duration SESSION_TIMEOUT = Duration.ofSeconds(30);
+    private static final Duration SESSION_TIMEOUT = Duration.ofSeconds(10);
 
     @NonNull
     private final EventSubscriptionService eventSubscriptionService;
@@ -96,13 +98,8 @@ public class EventHandler implements EventListener {
     }
 
     @Override
-    public int getNumThreads() {
-        return 10;
-    }
-
-    @Override
-    public synchronized void onEvent(final InMemoryEvent event) {
-        final var source = new Source(event.getNodeId(), event.getInterface());
+    public synchronized void onEvent(final IEvent event) {
+        final var source = new Source(event.getNodeid(), event.getInterfaceAddress());
 
         // Dispatch event based on UEI
         switch (event.getUei()) {
@@ -110,60 +107,86 @@ public class EventHandler implements EventListener {
             case UEI_RESYNC_FINISHED -> this.onFinished(source, event);
             case UEI_RESYNC_TIMEOUT -> this.onTimeout(source, event);
             case UEI_RESYNC_ALARM -> this.onAlarm(source, event);
-            default -> LOG.warn("Unknown UEI: {}", event.getUei());
+            default -> log.warn("Unknown UEI: {}", event.getUei());
         }
     }
 
-    private synchronized void onStarted(final Source source, final InMemoryEvent event) {
+    private synchronized void onStarted(final Source source, final IEvent event) {
         if (this.sessions.containsKey(source)) {
-            LOG.warn("Duplicate session: {}", source);
+            log.warn("onStart: duplicate session: {}", source);
             return;
         }
 
         this.sessions.put(source, new Session());
-        this.
 
-        LOG.info("Resync session started: {}", source);
+        log.info("resync session {}: started", source);
+
+        this.alarmForwarder.postStart(source.nodeId);
     }
 
-    private synchronized void onFinished(final Source source, final InMemoryEvent event) {
+    private synchronized void onFinished(final Source source, final IEvent event) {
         if (!this.sessions.containsKey(source)) {
-            LOG.warn("Unknown session: {}", source);
+            log.warn("onFinished: unknown session: {}", source);
+        }
+
+        final var session = this.sessions.remove(source);
+
+        log.info("resync session {}: completed", source);
+
+        this.alarmForwarder.postEnd(source.nodeId, true);
+    }
+
+    private synchronized void onTimeout(final Source source, final IEvent event) {
+        if (!this.sessions.containsKey(source)) {
+            log.warn("onTimeout: unknown session: {}", source);
             return;
         }
 
         final var session = this.sessions.remove(source);
 
-        LOG.info("Resync session completed: {}", source);
+        log.warn("resync session {}: timeout", source);
+
+        this.alarmForwarder.postEnd(source.nodeId, false);
     }
 
-    private synchronized void onTimeout(final Source source, final InMemoryEvent event) {
+    private synchronized void onAlarm(final Source source, final IEvent event) {
         if (!this.sessions.containsKey(source)) {
-            LOG.warn("Unknown session: {}", source);
-            return;
-        }
-
-        final var session = this.sessions.remove(source);
-
-        LOG.warn("Resync session timeout: {}", source);
-    }
-
-    private synchronized void onAlarm(final Source source, final InMemoryEvent event) {
-        if (!this.sessions.containsKey(source)) {
-            LOG.warn("Unknown session: {}", source);
+            log.info("onAlarm: unknown session - starting new one: {}", source);
+            this.sessions.put(source, new Session());
             return;
         }
 
         final var session = this.sessions.get(source);
         session.lastEvent = Instant.now();
+
+        log.info("resync session {}: alarm - {}", source, event);
+
+        final var alarm = Resync.Alarm.newBuilder();
+        alarm.setUei(event.getUei());
+        alarm.setNodeCriteria(Resync.NodeCriteria.newBuilder()
+                        .setId(event.getNodeid())
+                // TODO: Lookup node to provide more node info
+        );
+        alarm.setIpAddress(event.getInterface());
+        // TODO: alarm.setServiceName(event.getService());
+        // TODO: alarm.setReductionKey()
+        // TODO: alarm.setSeverity(event.getSeverity())
+        alarm.setFirstEventTime(event.getTime().getTime());
+        alarm.setDescription(event.getDescr() != null ? event.getDescr() : "");
+        alarm.setLogMessage(event.getLogmsg() != null && event.getLogmsg().getContent() != null ? event.getLogmsg().getContent() : "");
+        alarm.setLastEventTime(event.getTime().getTime());
+        // alarm.setIfIndex()
+
+        this.alarmForwarder.postAlarm(alarm.build());
+    }
+
+    @Value
+    private static class Source {
+        Long nodeId;
+        InetAddress iface;
     }
 
     @Data
-    private static class Source {
-        private final Integer nodeId;
-        private final InetAddress iface;
-    }
-
     private static class Session {
         private Instant lastEvent = Instant.now();
     }
@@ -177,12 +200,16 @@ public class EventHandler implements EventListener {
 
                     for (final var session : EventHandler.this.sessions.entrySet()) {
                         if (session.getValue().lastEvent.isBefore(timeout)) {
-                            final var event = ImmutableInMemoryEvent.newBuilder()
-                                    .setUei(UEI_RESYNC_TIMEOUT)
-                                    .setNodeId(session.getKey().getNodeId())
-                                    .setInterface(session.getKey().getIface())
-                                    .build();
-                            EventHandler.this.eventForwarder.sendAsync(event);
+                            EventHandler.this.eventForwarder.sendNow(
+                                    new EventBuilder()
+                                            .setTime(new Date())
+                                            .setSource(EVENT_SOURCE)
+                                            .setUei(UEI_RESYNC_TIMEOUT)
+                                            .setNodeid(session.getKey().getNodeId())
+                                            .setInterface(session.getKey().getIface())
+                                            .getEvent());
+
+                            EventHandler.this.sessions.remove(session.getKey());
                         }
                     }
                 }

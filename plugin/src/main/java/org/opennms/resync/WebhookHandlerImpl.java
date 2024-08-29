@@ -23,22 +23,20 @@
 package org.opennms.resync;
 
 import com.google.common.net.InetAddresses;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.ws.rs.core.Response;
 import java.net.InetAddress;
-import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
+@Slf4j
+@RequiredArgsConstructor
 public class WebhookHandlerImpl implements WebhookHandler {
-    private static final Logger LOG = LoggerFactory.getLogger(WebhookHandlerImpl.class);
 
+    @NonNull
     private final TriggerService triggerService;
-
-    public WebhookHandlerImpl(final TriggerService triggerService) {
-        this.triggerService = Objects.requireNonNull(triggerService);
-    }
 
     @Override
     public Response ping() {
@@ -46,26 +44,25 @@ public class WebhookHandlerImpl implements WebhookHandler {
     }
 
     @Override
-    public Response trigger(final String location,
-                            final String host,
-                            final TriggerRequest request) throws ExecutionException, InterruptedException {
+    public Response trigger(final TriggerRequest request) throws ExecutionException, InterruptedException {
+        log.debug("trigger: {}", request);
+
         // TODO: Extract default mode from node meta-data
 
         final InetAddress hostAddress;
         try {
-            hostAddress = InetAddresses.forString(host);
+            hostAddress = InetAddresses.forString(request.getHost());
         } catch (final IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST).build();
         }
 
-
         final var result = this.triggerService.trigger(TriggerService.Request.builder()
-                .location(location)
+                .location(request.getLocation())
                 .host(hostAddress)
-                .mode(request.mode())
+                .mode(request.getMode())
                 .build());
 
-        if (request.sync()) {
+        if (request.isSync()) {
             result.get();
         }
 

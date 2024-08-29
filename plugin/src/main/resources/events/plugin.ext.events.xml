@@ -9,6 +9,7 @@
         <logmsg></logmsg>
         <severity>Normal</severity>
     </event>
+
     <event>
         <uei>uei.opennms.org/resync/finished</uei>
         <event-label>OpenNMS Resync Plugin: Resync process finished</event-label>
@@ -17,7 +18,15 @@
         <descr></descr>
         <logmsg></logmsg>
         <severity>Normal</severity>
+
+        <mask>
+            <maskelement>
+                <mename>id</mename>
+                <mevalue>.1.3.6.1.4.1.28458.1.26.2.0.2.1</mevalue>
+            </maskelement>
+        </mask>
     </event>
+
     <event>
         <uei>uei.opennms.org/resync/timeout</uei>
         <event-label>OpenNMS Resync Plugin: Resync process reached timeout</event-label>

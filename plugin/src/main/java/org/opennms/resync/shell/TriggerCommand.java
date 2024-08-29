@@ -52,10 +52,10 @@ public class TriggerCommand implements Action {
     private String host;
 
     @Option(name = "location")
-    private String location;
+    private String location = "Default";
 
     @Option(name = "mode")
-    private TriggerService.Request.Mode mode;
+    private TriggerService.Mode mode = TriggerService.Mode.SET;
 
     @Override
     public Object execute() {
