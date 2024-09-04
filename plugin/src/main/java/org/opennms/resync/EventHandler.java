@@ -30,7 +30,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.opennms.netmgt.events.api.EventForwarder;
 import org.opennms.netmgt.events.api.EventListener;
 import org.opennms.netmgt.events.api.EventSubscriptionService;
+import org.opennms.netmgt.events.api.model.IAlarmData;
 import org.opennms.netmgt.events.api.model.IEvent;
+import org.opennms.netmgt.events.api.model.IManagedObject;
 import org.opennms.netmgt.model.events.EventBuilder;
 import org.opennms.resync.proto.Resync;
 
@@ -43,6 +45,8 @@ import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static org.opennms.resync.constants.Events.EVENT_SOURCE;
 import static org.opennms.resync.constants.Events.UEI_RESYNC_ALARM;
@@ -163,19 +167,24 @@ public class EventHandler implements EventListener {
 
         final var alarm = Resync.Alarm.newBuilder();
         alarm.setUei(event.getUei());
+        alarm.setCount(1);
+
         alarm.setNodeCriteria(Resync.NodeCriteria.newBuilder()
                         .setId(event.getNodeid())
                 // TODO: Lookup node to provide more node info
         );
-        alarm.setIpAddress(event.getInterface());
-        // TODO: alarm.setServiceName(event.getService());
-        // TODO: alarm.setReductionKey()
-        // TODO: alarm.setSeverity(event.getSeverity())
-        alarm.setFirstEventTime(event.getTime().getTime());
-        alarm.setDescription(event.getDescr() != null ? event.getDescr() : "");
-        alarm.setLogMessage(event.getLogmsg() != null && event.getLogmsg().getContent() != null ? event.getLogmsg().getContent() : "");
-        alarm.setLastEventTime(event.getTime().getTime());
-        // alarm.setIfIndex()
+
+        applyNotNull(event.getInterface(), alarm::setIpAddress);
+        applyNotNull(event.getDescr(), alarm::setDescription);
+        applyNotNull(event.getLogmsg().getContent(), alarm::setLogMessage);
+        applyNotNull(event.getTime(), alarm::setFirstEventTime, Date::getTime);
+        applyNotNull(event.getTime(), alarm::setLastEventTime, Date::getTime);
+        applyNotNull(event.getIfIndex(), alarm::setIfIndex);
+        applyNotNull(event.getOperinstruct(), alarm::setOperatorInstructions);
+        applyNotNull(event.getService(), alarm::setServiceName);
+        applyNotNull(event.getSeverity(), alarm::setSeverity, s -> Resync.Severity.valueOf(s.toUpperCase()));
+        applyNotNull(event.getAlarmData(), alarm::setReductionKey, IAlarmData::getReductionKey);
+        applyNotNull(event.getAlarmData(), alarm::setClearKey, IAlarmData::getClearKey);
 
         this.alarmForwarder.postAlarm(alarm.build());
     }
@@ -200,20 +209,38 @@ public class EventHandler implements EventListener {
 
                     for (final var session : EventHandler.this.sessions.entrySet()) {
                         if (session.getValue().lastEvent.isBefore(timeout)) {
-                            EventHandler.this.eventForwarder.sendNow(
-                                    new EventBuilder()
+                            EventHandler.this.eventForwarder.sendNow(new EventBuilder()
                                             .setTime(new Date())
                                             .setSource(EVENT_SOURCE)
                                             .setUei(UEI_RESYNC_TIMEOUT)
                                             .setNodeid(session.getKey().getNodeId())
                                             .setInterface(session.getKey().getIface())
                                             .getEvent());
-
-                            EventHandler.this.sessions.remove(session.getKey());
                         }
                     }
                 }
             }
         };
+    }
+
+    private static <T> void applyNotNull(final T input, final Consumer<T> consumer) {
+        if (input == null) {
+            return;
+        }
+
+        consumer.accept(input);
+    }
+
+    private static <T, R> void applyNotNull(final T input, final Consumer<R> consumer, final Function<T, R> map) {
+        if (input == null) {
+            return;
+        }
+
+        final R output = map.apply(input);
+        if (output == null) {
+            return;
+        }
+
+        consumer.accept(output);
     }
 }

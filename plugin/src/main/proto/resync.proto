@@ -67,7 +67,7 @@ message Alarm {
   string log_message = 12;
   string ack_user = 13;
   uint64 ack_time = 14;
-  Event last_event = 15;
+  //Event last_event = 15;
   uint64 last_event_time = 16;
   uint32 if_index = 17;
   string operator_instructions = 18;
