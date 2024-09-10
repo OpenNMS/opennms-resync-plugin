@@ -43,4 +43,10 @@ You can also access the REST endpoint mounted by the plugin:
 
 ## Configuration
 The plugin picks up the configuration of the OpenNMS Kafka Producer.
-There is no further configuration required.
+
+To configure which SNMP OIDs are sent on a request, the OIDs and according values can be set in multiple ways:
+- By setting node level meta-data in the context `requisition` and a key starting with the prefix `resync:`. 
+- By setting interface level meta-data in the context `requisition` and a key starting with the prefix `resync:`.
+- By adding entries to the `attrs` property in the request.
+
+

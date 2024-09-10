@@ -22,13 +22,20 @@
 
 package org.opennms.resync;
 
-import com.google.common.net.InetAddresses;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.factory.Mappers;
+import org.opennms.core.utils.InetAddressUtils;
+import org.opennms.netmgt.snmp.SnmpObjId;
+import org.opennms.netmgt.snmp.SnmpValue;
+import org.opennms.netmgt.snmp.snmp4j.Snmp4JValueFactory;
 
 import javax.ws.rs.core.Response;
 import java.net.InetAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutionException;
 
 @Slf4j
@@ -49,16 +56,33 @@ public class WebhookHandlerImpl implements WebhookHandler {
 
         // TODO: Extract default mode from node meta-data
 
-        final var result = this.triggerService.trigger(TriggerService.Request.builder()
-                .nodeCriteria(request.getNode())
-                .mode(request.getMode())
-                .build());
+        final var result = this.triggerService.trigger(TriggerRequestMapper.INSTANCE.toServiceRequest(request));
 
         if (request.isSync()) {
             result.get();
         }
 
         return Response.ok().build();
+    }
+
+    @Mapper()
+    public interface TriggerRequestMapper {
+        TriggerRequestMapper INSTANCE = Mappers.getMapper(TriggerRequestMapper.class);
+
+        default InetAddress inetAddress(final String ipAddress) {
+            return InetAddressUtils.addr(ipAddress);
+        }
+
+        default SnmpObjId snmpObjId(final String oid) {
+            return SnmpObjId.get(oid);
+        }
+
+        default SnmpValue snmpValue(final String value) {
+            return new Snmp4JValueFactory().getOctetString(value.getBytes(StandardCharsets.UTF_8));
+        }
+
+        @Mapping(target = "nodeCriteria", source = "node")
+        TriggerService.Request toServiceRequest(final TriggerRequest request);
     }
 }
 

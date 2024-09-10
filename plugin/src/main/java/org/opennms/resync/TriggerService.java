@@ -28,12 +28,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.opennms.integration.api.v1.dao.NodeDao;
-import org.opennms.integration.api.v1.model.IpInterface;
+import org.opennms.integration.api.v1.model.MetaData;
 import org.opennms.netmgt.config.api.SnmpAgentConfigFactory;
 import org.opennms.netmgt.events.api.EventForwarder;
 import org.opennms.netmgt.model.events.EventBuilder;
 import org.opennms.netmgt.snmp.SnmpObjId;
 import org.opennms.netmgt.snmp.SnmpRowResult;
+import org.opennms.netmgt.snmp.SnmpValue;
 import org.opennms.netmgt.snmp.TableTracker;
 import org.opennms.netmgt.snmp.proxy.LocationAwareSnmpClient;
 import org.opennms.netmgt.snmp.snmp4j.Snmp4JValueFactory;
@@ -42,7 +43,9 @@ import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
@@ -55,12 +58,13 @@ import static org.opennms.resync.constants.MIB.OID_CURRENT_ALARM_TABLE_ALARM_ID;
 import static org.opennms.resync.constants.MIB.OID_CURRENT_ALARM_TABLE_EVENT_TIME;
 import static org.opennms.resync.constants.MIB.OID_CURRENT_ALARM_TABLE_EVENT_TYPE;
 import static org.opennms.resync.constants.MIB.OID_CURRENT_ALARM_TABLE_PROBLEM_CAUSE;
-import static org.opennms.resync.constants.MIB.OID_NBI_GET_ACTIVE_ALARMS;
 
 @RequiredArgsConstructor
 @Slf4j
 public class TriggerService {
     // TODO: Maintain a global table of locks to track which system is in progress and disallow multiple concurring re-syncs
+
+    public final static String META_DATA_PREFIX = "resync:";
 
     @NonNull
     private final LocationAwareSnmpClient snmpClient;
@@ -136,9 +140,15 @@ public class TriggerService {
                         .setInterface(iface.getIpAddress())
                         .getEvent());
 
-                final var response = this.snmpClient.set(agent,
-                                OID_NBI_GET_ACTIVE_ALARMS,
-                                new Snmp4JValueFactory().getOctetString("all".getBytes(StandardCharsets.UTF_8)))
+                final var attrs = new HashMap<>(request.attrs);
+                extractMetaDataAttrs(node.getMetaData(), attrs);
+                extractMetaDataAttrs(iface.getMetaData(), attrs);
+
+                // The following two arrays are co-indexed
+                final var oids = request.attrs.entrySet().stream().map(Map.Entry::getKey).toArray(SnmpObjId[]::new);
+                final var vals = request.attrs.entrySet().stream().map(Map.Entry::getValue).toArray(SnmpValue[]::new);
+
+                final var response = this.snmpClient.set(agent, oids, vals)
                         .withLocation(node.getLocation())
                         .execute();
 
@@ -166,6 +176,10 @@ public class TriggerService {
 
         @NonNull
         Mode mode;
+
+        @NonNull
+        @Builder.Default
+        Map<SnmpObjId, SnmpValue> attrs = new HashMap<>();
     }
 
     public enum Mode {
@@ -196,6 +210,26 @@ public class TriggerService {
                     .setId(row.getValue(OID_CURRENT_ALARM_TABLE_ALARM_ID).toLong())
                     // TODO: Convert more properties
                     .build());
+        }
+    }
+
+    private static void extractMetaDataAttrs(final List<MetaData> metaData,
+                                             final HashMap<SnmpObjId, SnmpValue> attrs) {
+        for (final var e: metaData) {
+            if (!e.getContext().equals("requisition")) {
+                continue;
+            }
+
+            if (!e.getKey().startsWith(META_DATA_PREFIX)) {
+                continue;
+            }
+
+            final var key = e.getKey().substring(META_DATA_PREFIX.length());
+            final var oid = SnmpObjId.get(key);
+
+            final var val = new Snmp4JValueFactory().getOctetString(e.getValue().getBytes(StandardCharsets.UTF_8));
+
+            attrs.put(oid, val);
         }
     }
 }
