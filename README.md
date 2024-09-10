@@ -6,21 +6,14 @@ Build and install the plugin into your local Maven repository using:
 mvn clean install
 ```
 
+Install the .kar file
+```
+cp assembly/kar/target/opennms-resync-plugin.kar /opt/opennms/deploy/
+```
 
 From the OpenNMS Karaf shell:
 ```
-feature:repo-add mvn:org.opennms.plugins.resync/karaf-features/1.0.0-SNAPSHOT/xml
 feature:install opennms-plugins-resync
-```
-
-
-```
-cp assembly/kar/target/opennms-resync-plugin.kar /opt/opennms/deploy/
-feature:install opennms-plugins-resync
-```
-
-```
-bundle:watch *
 ```
 
 
