@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <artifactId>opennms-resync-plugin</artifactId>
     <groupId>org.opennms.plugins.resync</groupId>
@@ -139,7 +140,8 @@
                     <extensions>true</extensions>
                     <configuration>
                         <instructions>
-                            <Bundle-RequiredExecutionEnvironment>JavaSE-${java.version}</Bundle-RequiredExecutionEnvironment>
+                            <Bundle-RequiredExecutionEnvironment>JavaSE-${java.version}
+                            </Bundle-RequiredExecutionEnvironment>
                         </instructions>
                     </configuration>
                 </plugin>
@@ -204,7 +206,9 @@
                 <executions>
                     <execution>
                         <id>directories</id>
-                        <goals><goal>directory-of</goal></goals>
+                        <goals>
+                            <goal>directory-of</goal>
+                        </goals>
                         <phase>initialize</phase>
                         <configuration>
                             <property>my.toplevel.basedir</property>
@@ -269,7 +273,9 @@
                         </dependencies>
                         <configuration>
                             <configLocation>${my.toplevel.basedir}/src/main/resources/nms_checks.xml</configLocation>
-                            <suppressionsLocation>${my.toplevel.basedir}/src/main/resources/checkstyle-suppressions.xml</suppressionsLocation>
+                            <suppressionsLocation>
+                                ${my.toplevel.basedir}/src/main/resources/checkstyle-suppressions.xml
+                            </suppressionsLocation>
                             <!-- <sourceDirectory> is needed so that checkstyle ignores the generated sources directory -->
                             <sourceDirectories>${project.build.sourceDirectory}</sourceDirectories>
                             <includeResources>true</includeResources>
@@ -286,9 +292,13 @@
                                 </goals>
                                 <phase>process-resources</phase>
                                 <configuration>
-                                    <configLocation>${my.toplevel.basedir}/src/main/resources/check-license.xml</configLocation>
-                                    <suppressionsLocation>${my.toplevel.basedir}/src/main/resources/license-suppressions.xml</suppressionsLocation>
-                                    <headerLocation>${my.toplevel.basedir}/src/main/resources/AGPL-LICENSE.txt</headerLocation>
+                                    <configLocation>${my.toplevel.basedir}/src/main/resources/check-license.xml
+                                    </configLocation>
+                                    <suppressionsLocation>
+                                        ${my.toplevel.basedir}/src/main/resources/license-suppressions.xml
+                                    </suppressionsLocation>
+                                    <headerLocation>${my.toplevel.basedir}/src/main/resources/AGPL-LICENSE.txt
+                                    </headerLocation>
                                     <includeResources>false</includeResources>
                                     <includeTestSourceDirectory>true</includeTestSourceDirectory>
                                     <includeTestResources>false</includeTestResources>
@@ -320,6 +330,14 @@
                 <enabled>false</enabled>
             </releases>
             <snapshots>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>opennms-repo</id>
+            <name>OpenNMS Mega-Repository</name>
+            <url>https://maven.opennms.org/repository/everything/</url>
+            <snapshots>
+                <enabled>false</enabled>
             </snapshots>
         </repository>
     </repositories>
