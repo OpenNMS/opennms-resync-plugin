@@ -29,11 +29,8 @@ import org.apache.karaf.shell.api.action.Command;
 import org.apache.karaf.shell.api.action.Option;
 import org.apache.karaf.shell.api.action.lifecycle.Reference;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
-import org.opennms.integration.api.v1.dao.NodeDao;
 import org.opennms.resync.TriggerService;
 
-import javax.ws.rs.core.Response;
-import java.net.InetAddress;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -45,25 +42,24 @@ public class TriggerCommand implements Action {
     @Reference
     private TriggerService triggerService;
 
-    @Reference
-    private NodeDao nodeDao;
+    @Argument(name = "node", required = true)
+    private String node;
 
-    @Argument(name = "host", required = true)
-    private String host;
-
-    @Option(name = "location")
-    private String location = "Default";
+    @Option(name = "interface")
+    private String ipInterface = null;
 
     @Option(name = "mode")
     private TriggerService.Mode mode = TriggerService.Mode.SET;
 
     @Override
     public Object execute() {
-        final var hostAddress = InetAddresses.forString(this.host);
+        final var ipInterface = this.ipInterface != null
+                ? InetAddresses.forString(this.ipInterface)
+                : null;
 
         final var request = TriggerService.Request.builder()
-                .location(this.location != null ? this.location : this.nodeDao.getDefaultLocationName())
-                .host(hostAddress)
+                .nodeCriteria(this.node)
+                .ipInterface(ipInterface)
                 .mode(this.mode)
                 .build();
 

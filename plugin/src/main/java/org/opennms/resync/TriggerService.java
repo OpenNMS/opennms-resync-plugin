@@ -27,7 +27,8 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
-import org.opennms.integration.api.v1.dao.InterfaceToNodeCache;
+import org.opennms.integration.api.v1.dao.NodeDao;
+import org.opennms.integration.api.v1.model.IpInterface;
 import org.opennms.netmgt.config.api.SnmpAgentConfigFactory;
 import org.opennms.netmgt.events.api.EventForwarder;
 import org.opennms.netmgt.model.events.EventBuilder;
@@ -71,13 +72,20 @@ public class TriggerService {
     private final EventForwarder eventForwarder;
 
     @NonNull
-    private final InterfaceToNodeCache interfaceToNodeCache;
+    private final NodeDao nodeDao;
 
     public Future<Void> trigger(final Request request) {
-        final var nodeId = this.interfaceToNodeCache.getFirstNodeId(request.location, request.host)
-                .orElseThrow(() -> new NoSuchElementException("No such node: " + request.host + " at " + request.location));
+        final var node = this.nodeDao.getNodeByCriteria(request.getNodeCriteria());
+        if (node != null) {
+            throw new NoSuchElementException("No such node: " + request.nodeCriteria);
+        }
 
-        final var agent = this.snmpAgentConfigFactory.getAgentConfig(request.host, request.location);
+        final var iface = (request.ipInterface != null
+                ? node.getInterfaceByIp(request.ipInterface)
+                : node.getIpInterfaces().stream().findFirst())
+                .orElseThrow(() -> new NoSuchElementException("Requested interface not found on node"));
+
+        final var agent = this.snmpAgentConfigFactory.getAgentConfig(iface.getIpAddress(), node.getLocation());
         // TODO: Error handling?
 
         final var result = new CompletableFuture<Void>();
@@ -91,8 +99,8 @@ public class TriggerService {
                                     .setTime(new Date())
                                     .setSource(EVENT_SOURCE)
                                     .setUei(UEI_RESYNC_STARTED)
-                                    .setNodeid(nodeId)
-                                    .setInterface(request.host)
+                                    .setNodeid(node.getId())
+                                    .setInterface(iface.getIpAddress())
                                     .getEvent());
 
                             for (final var alarm : tracker.alarms) {
@@ -100,8 +108,8 @@ public class TriggerService {
                                         .setTime(new Date())
                                         .setSource(EVENT_SOURCE)
                                         .setUei(UEI_RESYNC_ALARM)
-                                        .setNodeid(nodeId)
-                                        .setInterface(request.host)
+                                        .setNodeid(node.getId())
+                                        .setInterface(iface.getIpAddress())
                                         .getEvent());
 
                                 // TODO: Add alarm data
@@ -111,8 +119,8 @@ public class TriggerService {
                                     .setTime(new Date())
                                     .setSource(EVENT_SOURCE)
                                     .setUei(UEI_RESYNC_FINISHED)
-                                    .setNodeid(nodeId)
-                                    .setInterface(request.host)
+                                    .setNodeid(node.getId())
+                                    .setInterface(iface.getIpAddress())
                                     .getEvent());
 
                             result.complete(null);
@@ -124,14 +132,14 @@ public class TriggerService {
                         .setTime(new Date())
                         .setSource(EVENT_SOURCE)
                         .setUei(UEI_RESYNC_STARTED)
-                        .setNodeid(nodeId)
-                        .setInterface(request.host)
+                        .setNodeid(node.getId())
+                        .setInterface(iface.getIpAddress())
                         .getEvent());
 
                 final var response = this.snmpClient.set(agent,
                                 OID_NBI_GET_ACTIVE_ALARMS,
                                 new Snmp4JValueFactory().getOctetString("all".getBytes(StandardCharsets.UTF_8)))
-                        .withLocation(request.location)
+                        .withLocation(node.getLocation())
                         .execute();
 
                 response.whenComplete((ok, ex) -> {
@@ -148,13 +156,13 @@ public class TriggerService {
     }
 
     @Value
-    @Builder(builderClassName = "Builder")
+    @Builder
     public static class Request {
         @NonNull
-        String location;
+        String nodeCriteria;
 
-        @NonNull
-        InetAddress host;
+        @Builder.Default
+        InetAddress ipInterface = null;
 
         @NonNull
         Mode mode;

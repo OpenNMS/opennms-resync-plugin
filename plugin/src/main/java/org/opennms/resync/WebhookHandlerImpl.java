@@ -49,16 +49,8 @@ public class WebhookHandlerImpl implements WebhookHandler {
 
         // TODO: Extract default mode from node meta-data
 
-        final InetAddress hostAddress;
-        try {
-            hostAddress = InetAddresses.forString(request.getHost());
-        } catch (final IllegalArgumentException e) {
-            return Response.status(Response.Status.BAD_REQUEST).build();
-        }
-
         final var result = this.triggerService.trigger(TriggerService.Request.builder()
-                .location(request.getLocation())
-                .host(hostAddress)
+                .nodeCriteria(request.getNode())
                 .mode(request.getMode())
                 .build());
 
