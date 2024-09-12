@@ -61,6 +61,10 @@
                         <Karaf-Commands>*</Karaf-Commands>
                         <!-- Nothing to export -->
                         <Export-Package></Export-Package>
+                        <Import-Package>
+                          org.opennms.*;version="[0, 9999)",
+                          *
+                        </Import-Package>
                     </instructions>
                 </configuration>
             </plugin>
@@ -137,11 +141,13 @@
             <groupId>org.opennms.features.collection</groupId>
             <artifactId>org.opennms.features.collection.client-rpc</artifactId>
             <version>${opennms.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.opennms.features.kafka</groupId>
             <artifactId>org.opennms.features.kafka.producer</artifactId>
             <version>${opennms.version}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.karaf.shell</groupId>
