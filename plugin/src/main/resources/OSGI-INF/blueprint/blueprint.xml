@@ -24,8 +24,8 @@
                interface="org.opennms.netmgt.events.api.EventSubscriptionService"
                availability="optional"/>
 
-    <reference id="interfaceToNodeCache"
-               interface="org.opennms.integration.api.v1.dao.InterfaceToNodeCache"
+    <reference id="nodeDao"
+               interface="org.opennms.integration.api.v1.dao.NodeDao"
                availability="optional"/>
 
     <bean id="alarmForwarder" class="org.opennms.resync.AlarmForwarder">
@@ -36,7 +36,7 @@
         <argument ref="snmpClient"/>
         <argument ref="snmpAgentConfigFactory"/>
         <argument ref="eventForwarder"/>
-        <argument ref="interfaceToNodeCache"/>
+        <argument ref="nodeDao"/>
     </bean>
     <service interface="org.opennms.resync.TriggerService" ref="trigger"/>
 

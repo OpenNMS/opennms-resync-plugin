@@ -26,7 +26,6 @@ import lombok.Builder;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
-import lombok.extern.slf4j.Slf4j;
 import org.opennms.integration.api.v1.dao.NodeDao;
 import org.opennms.integration.api.v1.model.MetaData;
 import org.opennms.netmgt.config.api.SnmpAgentConfigFactory;
@@ -60,7 +59,6 @@ import static org.opennms.resync.constants.MIB.OID_CURRENT_ALARM_TABLE_EVENT_TYP
 import static org.opennms.resync.constants.MIB.OID_CURRENT_ALARM_TABLE_PROBLEM_CAUSE;
 
 @RequiredArgsConstructor
-@Slf4j
 public class TriggerService {
     // TODO: Maintain a global table of locks to track which system is in progress and disallow multiple concurring re-syncs
 
