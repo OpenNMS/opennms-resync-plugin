@@ -107,11 +107,11 @@ public class EventHandler implements EventListener {
 
         // Dispatch event based on UEI
         switch (event.getUei()) {
-            case UEI_RESYNC_STARTED -> this.onStarted(source, event);
-            case UEI_RESYNC_FINISHED -> this.onFinished(source, event);
-            case UEI_RESYNC_TIMEOUT -> this.onTimeout(source, event);
-            case UEI_RESYNC_ALARM -> this.onAlarm(source, event);
-            default -> log.warn("Unknown UEI: {}", event.getUei());
+            case UEI_RESYNC_STARTED: this.onStarted(source, event); break;
+            case UEI_RESYNC_FINISHED: this.onFinished(source, event); break;
+            case UEI_RESYNC_TIMEOUT: this.onTimeout(source, event); break;
+            case UEI_RESYNC_ALARM: this.onAlarm(source, event); break;
+            default: log.warn("Unknown UEI: {}", event.getUei());
         }
     }
 

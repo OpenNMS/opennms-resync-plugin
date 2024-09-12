@@ -93,7 +93,7 @@ public class TriggerService {
         final var result = new CompletableFuture<Void>();
 
         switch (request.mode) {
-            case GET -> {
+            case GET: {
                 this.snmpClient.walk(agent, new AlarmTableTracker())
                         .execute()
                         .thenAccept(tracker -> {
@@ -127,9 +127,11 @@ public class TriggerService {
 
                             result.complete(null);
                         });
+
+                break;
             }
 
-            case SET -> {
+            case SET: {
                 this.eventForwarder.sendNow(new EventBuilder()
                         .setTime(new Date())
                         .setSource(EVENT_SOURCE)
@@ -157,6 +159,8 @@ public class TriggerService {
                         result.complete(null);
                     }
                 });
+
+                break;
             }
         }
 
