@@ -28,9 +28,12 @@ You can also access the REST endpoint mounted by the plugin:
   Content-Type: application/json
   
   {
-    "host": "127.0.0.1",
-    "location": "Default",
-    "mode": "SET"
+    "node": "1",
+    "ipInterface": "127.0.0.1",
+    "mode": "SET",
+    "attrs": {
+      ".1.2.3.4.5": "all"
+    }
   }
   ```
 
