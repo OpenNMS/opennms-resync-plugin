@@ -78,7 +78,7 @@ public class TriggerService {
 
     public Future<Void> trigger(final Request request) {
         final var node = this.nodeDao.getNodeByCriteria(request.getNodeCriteria());
-        if (node != null) {
+        if (node == null) {
             throw new NoSuchElementException("No such node: " + request.nodeCriteria);
         }
 
