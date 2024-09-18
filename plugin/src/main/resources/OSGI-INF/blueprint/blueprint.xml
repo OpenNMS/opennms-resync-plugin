@@ -56,8 +56,4 @@
             <entry key="application-path" value="/rest"/>
         </service-properties>
     </service>
-
-    <service interface="org.opennms.integration.api.v1.config.events.EventConfExtension">
-        <bean class="org.opennms.resync.EventConfExtension"/>
-    </service>
 </blueprint>
