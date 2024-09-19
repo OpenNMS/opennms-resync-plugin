@@ -26,6 +26,7 @@ import lombok.Builder;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
+import org.apache.camel.util.EventHelper;
 import org.opennms.integration.api.v1.dao.NodeDao;
 import org.opennms.integration.api.v1.model.MetaData;
 import org.opennms.netmgt.config.api.SnmpAgentConfigFactory;
@@ -76,6 +77,9 @@ public class TriggerService {
     @NonNull
     private final NodeDao nodeDao;
 
+    @NonNull
+    private final EventHandler eventHandler;
+
     public Future<Void> trigger(final Request request) {
         final var node = this.nodeDao.getNodeByCriteria(request.getNodeCriteria());
         if (node == null) {
@@ -91,6 +95,13 @@ public class TriggerService {
         // TODO: Error handling?
 
         final var result = new CompletableFuture<Void>();
+
+        this.eventHandler.createSession(EventHandler.Source.builder()
+                        .nodeId(node.getId().longValue())
+                        .iface(iface.getIpAddress())
+                        .build(),
+                request.sessionId);
+        // TODO: This excepts on duplicate session? Should we wait?
 
         switch (request.mode) {
             case GET: {
@@ -173,6 +184,9 @@ public class TriggerService {
         @NonNull
         String nodeCriteria;
 
+        @NonNull
+        String sessionId;
+
         @Builder.Default
         InetAddress ipInterface = null;
 
@@ -217,7 +231,7 @@ public class TriggerService {
 
     private static void extractMetaDataAttrs(final List<MetaData> metaData,
                                              final HashMap<SnmpObjId, SnmpValue> attrs) {
-        for (final var e: metaData) {
+        for (final var e : metaData) {
             if (!e.getContext().equals("requisition")) {
                 continue;
             }

@@ -56,6 +56,9 @@ public interface WebhookHandler {
     @Jacksonized
     class TriggerRequest {
         @NonNull
+        String resyncId;
+
+        @NonNull
         String node;
 
         @Builder.Default

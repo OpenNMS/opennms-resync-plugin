@@ -31,6 +31,7 @@ import org.apache.karaf.shell.api.action.lifecycle.Reference;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.opennms.resync.TriggerService;
 
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -44,6 +45,9 @@ public class TriggerCommand implements Action {
 
     @Argument(name = "node", required = true)
     private String node;
+
+    @Option(name = "resync-id")
+    private String resyncId;
 
     @Option(name = "interface")
     private String ipInterface = null;
@@ -60,6 +64,9 @@ public class TriggerCommand implements Action {
         final var request = TriggerService.Request.builder()
                 .nodeCriteria(this.node)
                 .ipInterface(ipInterface)
+                .sessionId(this.resyncId != null
+                        ? this.resyncId
+                        : UUID.randomUUID().toString())
                 .mode(this.mode)
                 .build();
 

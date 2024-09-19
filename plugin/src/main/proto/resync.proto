@@ -79,14 +79,18 @@ message Alarm {
   //TroubleTicketState trouble_ticket_state = 24;
   uint64 last_update_time = 25;
 
-  bool resync = 536870911;
+  string resync_id = 536870911;
 }
 
 message ResyncStart {
   uint64 node_id = 1;
+
+  string resync_id = 536870911;
 }
 
 message ResyncEnd {
   uint64 node_id = 1;
   bool success = 2;
+
+  string resync_id = 536870911;
 }

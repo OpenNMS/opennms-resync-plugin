@@ -91,37 +91,39 @@ public class AlarmForwarder {
         }
     }
 
-    public void postStart(final long nodeId) {
+    public void postStart(final String sessionId, final long nodeId) {
         final var message = Resync.ResyncStart.newBuilder()
                 .setNodeId(nodeId)
+                .setResyncId(sessionId)
                 .build();
 
-        final var record = new ProducerRecord<>(topic, (byte[]) null, message.toByteArray());
+        final var record = new ProducerRecord<>(this.topic, (byte[]) null, message.toByteArray());
         record.headers().add(HEADER_RESYNC_MARK_START, new byte[0]);
 
         this.send(record);
     }
 
-    public void postEnd(final long nodeId, final boolean success) {
+    public void postEnd(final String sessionId, final long nodeId, final boolean success) {
         final var message = Resync.ResyncEnd.newBuilder()
                 .setNodeId(nodeId)
                 .setSuccess(success)
+                .setResyncId(sessionId)
                 .build();
 
-        final var record = new ProducerRecord<>(topic, (byte[]) null, message.toByteArray());
+        final var record = new ProducerRecord<>(this.topic, (byte[]) null, message.toByteArray());
         record.headers().add(HEADER_RESYNC_MARK_END, new byte[0]);
 
         this.send(record);
     }
 
-    public void postAlarm(final Resync.Alarm alarm) {
+    public void postAlarm(final String sessionId, final Resync.Alarm alarm) {
         final var updatedAlarm = alarm.toBuilder()
-                .setResync(true)
+                .setResyncId(sessionId)
                 .build();
 
         final var key = alarm.getReductionKey().getBytes(StandardCharsets.UTF_8);
 
-        final var record = new ProducerRecord<>(topic, key, updatedAlarm.toByteArray());
+        final var record = new ProducerRecord<>(this.topic, key, updatedAlarm.toByteArray());
         record.headers().add(HEADER_RESYNC_MARK_ALARM, new byte[0]);
 
         this.send(record);

@@ -22,6 +22,7 @@
 
 package org.opennms.resync;
 
+import lombok.Builder;
 import lombok.Data;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +33,6 @@ import org.opennms.netmgt.events.api.EventListener;
 import org.opennms.netmgt.events.api.EventSubscriptionService;
 import org.opennms.netmgt.events.api.model.IAlarmData;
 import org.opennms.netmgt.events.api.model.IEvent;
-import org.opennms.netmgt.events.api.model.IManagedObject;
 import org.opennms.netmgt.model.events.EventBuilder;
 import org.opennms.resync.proto.Resync;
 
@@ -90,7 +90,7 @@ public class EventHandler implements EventListener {
     }
 
     public void stop() {
-        this.eventSubscriptionService.removeEventListener(this, UEIS);
+        this.eventSubscriptionService.removeEventListener(this);
 
         assert this.timer != null;
         this.timer.cancel();
@@ -101,17 +101,37 @@ public class EventHandler implements EventListener {
         return "resync-event-handler";
     }
 
+    public synchronized void createSession(final Source source,
+                                           final String sessionId) {
+        if (this.sessions.containsKey(source)) {
+            throw new IllegalStateException("session already exists for source: " + source);
+        }
+
+        this.sessions.put(source, Session.builder()
+                .sessionId(sessionId)
+                .build());
+    }
+
     @Override
     public synchronized void onEvent(final IEvent event) {
         final var source = new Source(event.getNodeid(), event.getInterfaceAddress());
 
         // Dispatch event based on UEI
         switch (event.getUei()) {
-            case UEI_RESYNC_STARTED: this.onStarted(source, event); break;
-            case UEI_RESYNC_FINISHED: this.onFinished(source, event); break;
-            case UEI_RESYNC_TIMEOUT: this.onTimeout(source, event); break;
-            case UEI_RESYNC_ALARM: this.onAlarm(source, event); break;
-            default: log.warn("Unknown UEI: {}", event.getUei());
+            case UEI_RESYNC_STARTED:
+                this.onStarted(source, event);
+                break;
+            case UEI_RESYNC_FINISHED:
+                this.onFinished(source, event);
+                break;
+            case UEI_RESYNC_TIMEOUT:
+                this.onTimeout(source, event);
+                break;
+            case UEI_RESYNC_ALARM:
+                this.onAlarm(source, event);
+                break;
+            default:
+                log.warn("Unknown UEI: {}", event.getUei());
         }
     }
 
@@ -121,11 +141,11 @@ public class EventHandler implements EventListener {
             return;
         }
 
-        this.sessions.put(source, new Session());
-
         log.info("resync session {}: started", source);
 
-        this.alarmForwarder.postStart(source.nodeId);
+        final var session = this.sessions.get(source);
+
+        this.alarmForwarder.postStart(session.sessionId, source.nodeId);
     }
 
     private synchronized void onFinished(final Source source, final IEvent event) {
@@ -133,11 +153,12 @@ public class EventHandler implements EventListener {
             log.warn("onFinished: unknown session: {}", source);
         }
 
+        // TODO: Keep sessions there to get out status?
         final var session = this.sessions.remove(source);
 
         log.info("resync session {}: completed", source);
 
-        this.alarmForwarder.postEnd(source.nodeId, true);
+        this.alarmForwarder.postEnd(session.sessionId, source.nodeId, true);
     }
 
     private synchronized void onTimeout(final Source source, final IEvent event) {
@@ -146,17 +167,17 @@ public class EventHandler implements EventListener {
             return;
         }
 
+        // TODO: Keep sessions there to get out status?
         final var session = this.sessions.remove(source);
 
         log.warn("resync session {}: timeout", source);
 
-        this.alarmForwarder.postEnd(source.nodeId, false);
+        this.alarmForwarder.postEnd(session.sessionId, source.nodeId, false);
     }
 
     private synchronized void onAlarm(final Source source, final IEvent event) {
         if (!this.sessions.containsKey(source)) {
-            log.info("onAlarm: unknown session - starting new one: {}", source);
-            this.sessions.put(source, new Session());
+            log.info("onAlarm: unknown session - ignoring event: {}", source);
             return;
         }
 
@@ -186,17 +207,22 @@ public class EventHandler implements EventListener {
         applyNotNull(event.getAlarmData(), alarm::setReductionKey, IAlarmData::getReductionKey);
         applyNotNull(event.getAlarmData(), alarm::setClearKey, IAlarmData::getClearKey);
 
-        this.alarmForwarder.postAlarm(alarm.build());
+        this.alarmForwarder.postAlarm(session.sessionId, alarm.build());
     }
 
     @Value
-    private static class Source {
+    @Builder
+    public static class Source {
         Long nodeId;
         InetAddress iface;
     }
 
     @Data
+    @Builder
     private static class Session {
+        private String sessionId;
+
+        @Builder.Default
         private Instant lastEvent = Instant.now();
     }
 
@@ -210,12 +236,12 @@ public class EventHandler implements EventListener {
                     for (final var session : EventHandler.this.sessions.entrySet()) {
                         if (session.getValue().lastEvent.isBefore(timeout)) {
                             EventHandler.this.eventForwarder.sendNow(new EventBuilder()
-                                            .setTime(new Date())
-                                            .setSource(EVENT_SOURCE)
-                                            .setUei(UEI_RESYNC_TIMEOUT)
-                                            .setNodeid(session.getKey().getNodeId())
-                                            .setInterface(session.getKey().getIface())
-                                            .getEvent());
+                                    .setTime(new Date())
+                                    .setSource(EVENT_SOURCE)
+                                    .setUei(UEI_RESYNC_TIMEOUT)
+                                    .setNodeid(session.getKey().getNodeId())
+                                    .setInterface(session.getKey().getIface())
+                                    .getEvent());
                         }
                     }
                 }

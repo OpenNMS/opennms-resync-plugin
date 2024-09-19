@@ -32,14 +32,6 @@
         <argument ref="configAdmin" />
     </bean>
 
-    <bean id="trigger" class="org.opennms.resync.TriggerService">
-        <argument ref="snmpClient"/>
-        <argument ref="snmpAgentConfigFactory"/>
-        <argument ref="eventForwarder"/>
-        <argument ref="nodeDao"/>
-    </bean>
-    <service interface="org.opennms.resync.TriggerService" ref="trigger"/>
-
     <bean id="eventHandler" class="org.opennms.resync.EventHandler"
           init-method="start"
           destroy-method="stop">
@@ -47,6 +39,15 @@
         <argument ref="eventForwarder"/>
         <argument ref="alarmForwarder"/>
     </bean>
+
+    <bean id="trigger" class="org.opennms.resync.TriggerService">
+        <argument ref="snmpClient"/>
+        <argument ref="snmpAgentConfigFactory"/>
+        <argument ref="eventForwarder"/>
+        <argument ref="nodeDao"/>
+        <argument ref="eventHandler"/>
+    </bean>
+    <service interface="org.opennms.resync.TriggerService" ref="trigger"/>
 
     <bean id="webhookHandlerImpl" class="org.opennms.resync.WebhookHandlerImpl">
         <argument ref="trigger"/>
