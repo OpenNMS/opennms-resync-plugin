@@ -28,6 +28,7 @@ You can also access the REST endpoint mounted by the plugin:
   Content-Type: application/json
   
   {
+    "resyncId": "my unique ID",
     "node": "1",
     "ipInterface": "127.0.0.1",
     "mode": "SET",

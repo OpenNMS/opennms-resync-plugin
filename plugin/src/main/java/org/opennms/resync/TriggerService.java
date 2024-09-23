@@ -26,7 +26,6 @@ import lombok.Builder;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
-import org.apache.camel.util.EventHelper;
 import org.opennms.integration.api.v1.dao.NodeDao;
 import org.opennms.integration.api.v1.model.MetaData;
 import org.opennms.netmgt.config.api.SnmpAgentConfigFactory;
@@ -100,7 +99,7 @@ public class TriggerService {
                         .nodeId(node.getId().longValue())
                         .iface(iface.getIpAddress())
                         .build(),
-                request.sessionId);
+                request);
         // TODO: This excepts on duplicate session? Should we wait?
 
         switch (request.mode) {
