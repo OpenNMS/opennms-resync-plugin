@@ -26,7 +26,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.streams.processor.api.Record;
 import org.opennms.features.kafka.producer.OpennmsKafkaProducer;
 import org.opennms.resync.proto.Resync;
 import org.osgi.service.cm.ConfigurationAdmin;

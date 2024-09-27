@@ -40,7 +40,6 @@ import java.net.InetAddress;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Timer;
@@ -103,13 +102,13 @@ public class EventHandler implements EventListener {
     }
 
     public synchronized void createSession(final Source source,
-                                           final TriggerService.Request request) {
+                                           final String sessionId) {
         if (this.sessions.containsKey(source)) {
             throw new IllegalStateException("session already exists for source: " + source);
         }
 
         this.sessions.put(source, Session.builder()
-                .sessionId(request.getSessionId())
+                .sessionId(sessionId)
                 .build());
     }
 
@@ -137,8 +136,8 @@ public class EventHandler implements EventListener {
     }
 
     private synchronized void onStarted(final Source source, final IEvent event) {
-        if (this.sessions.containsKey(source)) {
-            log.warn("onStart: duplicate session: {}", source);
+        if (!this.sessions.containsKey(source)) {
+            log.warn("onStart: unknown session: {}", source);
             return;
         }
 

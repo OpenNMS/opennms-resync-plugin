@@ -28,6 +28,9 @@
                interface="org.opennms.integration.api.v1.dao.NodeDao"
                availability="optional"/>
 
+    <bean id="configs" class="org.opennms.resync.config.Configs">
+    </bean>
+
     <bean id="alarmForwarder" class="org.opennms.resync.AlarmForwarder">
         <argument ref="configAdmin" />
     </bean>
@@ -46,6 +49,7 @@
         <argument ref="eventForwarder"/>
         <argument ref="nodeDao"/>
         <argument ref="eventHandler"/>
+        <argument ref="configs" />
     </bean>
     <service interface="org.opennms.resync.TriggerService" ref="trigger"/>
 

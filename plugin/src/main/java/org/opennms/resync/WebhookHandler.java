@@ -36,7 +36,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 
 @Path("resync")
 public interface WebhookHandler {
@@ -49,12 +48,16 @@ public interface WebhookHandler {
     @Path("/trigger")
     @Produces({MediaType.APPLICATION_JSON})
     @Consumes({MediaType.APPLICATION_JSON})
-    Response trigger(TriggerRequest request) throws ExecutionException, InterruptedException;
+    Response trigger(TriggerRequest request) throws Exception;
 
     @Value
     @Builder
     @Jacksonized
     class TriggerRequest {
+        enum Mode {
+            GET, SET
+        }
+
         @NonNull
         String resyncId;
 
@@ -65,7 +68,7 @@ public interface WebhookHandler {
         String ipInterface = null;
 
         @Builder.Default
-        TriggerService.Mode mode = null;
+        Mode mode = null;
 
         @Builder.Default
         boolean sync = false;
@@ -73,5 +76,8 @@ public interface WebhookHandler {
         @NonNull
         @Builder.Default
         Map<String, String> attrs = new HashMap<>();
+
+        @Builder.Default
+        String kind = null;
     }
 }

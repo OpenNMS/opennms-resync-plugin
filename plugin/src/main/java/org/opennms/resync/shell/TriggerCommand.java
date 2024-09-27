@@ -23,54 +23,49 @@
 package org.opennms.resync.shell;
 
 import com.google.common.net.InetAddresses;
+import lombok.Builder;
+import lombok.NonNull;
+import lombok.Value;
 import org.apache.karaf.shell.api.action.Action;
 import org.apache.karaf.shell.api.action.Argument;
-import org.apache.karaf.shell.api.action.Command;
 import org.apache.karaf.shell.api.action.Option;
 import org.apache.karaf.shell.api.action.lifecycle.Reference;
-import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.opennms.resync.TriggerService;
 
+import java.net.InetAddress;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-@Command(scope = "opennms-resync", name = "trigger", description = "Trigger a re-sync")
-@Service
-public class TriggerCommand implements Action {
-
+public abstract class TriggerCommand<R> implements Action {
     @Reference
-    private TriggerService triggerService;
+    protected TriggerService triggerService;
 
     @Argument(name = "node", required = true)
     private String node;
 
-    @Option(name = "resync-id")
-    private String resyncId;
-
     @Option(name = "interface")
     private String ipInterface = null;
 
-    @Option(name = "mode")
-    private TriggerService.Mode mode = TriggerService.Mode.SET;
+    @Option(name = "resync-id")
+    private String resyncId;
 
-    @Override
-    public Object execute() {
+    public final Object execute() throws Exception {
         final var ipInterface = this.ipInterface != null
                 ? InetAddresses.forString(this.ipInterface)
                 : null;
 
-        final var request = TriggerService.Request.builder()
-                .nodeCriteria(this.node)
-                .ipInterface(ipInterface)
-                .sessionId(this.resyncId != null
+        final var request = this.request(RequestData.builder()
+                .resyncId(this.resyncId != null
                         ? this.resyncId
                         : UUID.randomUUID().toString())
-                .mode(this.mode)
-                .build();
+                .node(this.node)
+                .ipInterface(ipInterface)
+                .build());
 
-        final var result = this.triggerService.trigger(request);
+        final var result = this.execute(request);
 
         while (!result.isDone()) {
             try {
@@ -87,5 +82,21 @@ public class TriggerCommand implements Action {
         System.out.println("Done");
 
         return null;
+    }
+
+    protected abstract R request(final RequestData data);
+
+    protected abstract Future<Void> execute(final R request) throws Exception;
+
+    @Value
+    @Builder
+    protected static class RequestData {
+        @NonNull
+        String resyncId;
+
+        @NonNull
+        String node;
+
+        InetAddress ipInterface;
     }
 }

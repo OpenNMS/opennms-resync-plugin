@@ -20,13 +20,26 @@
  * License.
  */
 
-package org.opennms.resync.model;
+package org.opennms.resync.config;
 
 import lombok.Builder;
+import lombok.NonNull;
 import lombok.Value;
+import lombok.extern.jackson.Jacksonized;
+import org.opennms.netmgt.snmp.SnmpObjId;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Value
 @Builder
-public class Alarm {
+@Jacksonized
+public class GetConfig {
+    @NonNull
+    @Builder.Default
+    Map<String, SnmpObjId> columns = new LinkedHashMap<>();
 
+    @NonNull
+    @Builder.Default
+    Map<String, String> parameters = new LinkedHashMap<>();
 }

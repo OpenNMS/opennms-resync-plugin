@@ -28,15 +28,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.factory.Mappers;
-import org.opennms.core.utils.InetAddressUtils;
-import org.opennms.netmgt.snmp.SnmpObjId;
-import org.opennms.netmgt.snmp.SnmpValue;
-import org.opennms.netmgt.snmp.snmp4j.Snmp4JValueFactory;
 
 import javax.ws.rs.core.Response;
-import java.net.InetAddress;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -51,12 +47,23 @@ public class WebhookHandlerImpl implements WebhookHandler {
     }
 
     @Override
-    public Response trigger(final TriggerRequest request) throws ExecutionException, InterruptedException {
+    public Response trigger(final TriggerRequest request) throws IOException, ExecutionException, InterruptedException {
         log.debug("trigger: {}", request);
 
         // TODO: Extract default mode from node meta-data
 
-        final var result = this.triggerService.trigger(TriggerRequestMapper.INSTANCE.toServiceRequest(request));
+
+        final Future<Void> result;
+        switch (request.getMode()) {
+            case SET:
+                result = this.triggerService.set(TriggerRequestMapper.INSTANCE.toSetRequest(request));
+                break;
+            case GET:
+                result = this.triggerService.get(TriggerRequestMapper.INSTANCE.toGetRequest(request));
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported mode: " + request.getMode());
+        }
 
         if (request.isSync()) {
             result.get();
@@ -65,25 +72,17 @@ public class WebhookHandlerImpl implements WebhookHandler {
         return Response.ok().build();
     }
 
-    @Mapper()
+    @Mapper(uses = TriggerService.TriggerMapper.class)
     public interface TriggerRequestMapper {
         TriggerRequestMapper INSTANCE = Mappers.getMapper(TriggerRequestMapper.class);
 
-        default InetAddress inetAddress(final String ipAddress) {
-            return InetAddressUtils.addr(ipAddress);
-        }
-
-        default SnmpObjId snmpObjId(final String oid) {
-            return SnmpObjId.get(oid);
-        }
-
-        default SnmpValue snmpValue(final String value) {
-            return new Snmp4JValueFactory().getOctetString(value.getBytes(StandardCharsets.UTF_8));
-        }
+        @Mapping(target = "nodeCriteria", source = "node")
+        @Mapping(target = "sessionId", source = "resyncId")
+        TriggerService.SetRequest toSetRequest(final TriggerRequest request);
 
         @Mapping(target = "nodeCriteria", source = "node")
         @Mapping(target = "sessionId", source = "resyncId")
-        TriggerService.Request toServiceRequest(final TriggerRequest request);
+        TriggerService.GetRequest toGetRequest(final TriggerRequest request);
     }
 }
 
