@@ -32,6 +32,7 @@ import org.mapstruct.factory.Mappers;
 import org.opennms.core.utils.InetAddressUtils;
 import org.opennms.integration.api.v1.dao.NodeDao;
 import org.opennms.integration.api.v1.model.MetaData;
+import org.opennms.integration.api.v1.model.Node;
 import org.opennms.netmgt.config.api.SnmpAgentConfigFactory;
 import org.opennms.netmgt.events.api.EventForwarder;
 import org.opennms.netmgt.model.events.EventBuilder;
@@ -109,7 +110,11 @@ public class TriggerService {
     public Future<Void> set(final SetRequest request) throws IOException {
         log.info("trigger: set: {}", request);
 
-        final var node = this.nodeDao.getNodeByCriteria(request.getNodeCriteria());
+
+        Node node = this.nodeDao.getNodeByLabel(request.getNodeCriteria());
+        if (node == null) {
+            node = this.nodeDao.getNodeByCriteria(request.getNodeCriteria());
+        }
         if (node == null) {
             throw new NoSuchElementException("No such node: " + request.nodeCriteria);
         }
