@@ -141,9 +141,9 @@ public class EventHandler implements EventListener {
             return;
         }
 
-        log.info("resync session {}: started", source);
-
         final var session = this.sessions.get(source);
+
+        log.info("resyc session {}: started (id = {})", source, session.sessionId);
 
         this.alarmForwarder.postStart(session.sessionId, source.nodeId);
     }
@@ -156,7 +156,7 @@ public class EventHandler implements EventListener {
         // TODO: Keep sessions there to get out status?
         final var session = this.sessions.remove(source);
 
-        log.info("resync session {}: completed", source);
+        log.info("resync session {}: completed (id = {})", source, session.sessionId);
 
         this.alarmForwarder.postEnd(session.sessionId, source.nodeId, true);
     }
@@ -170,7 +170,7 @@ public class EventHandler implements EventListener {
         // TODO: Keep sessions there to get out status?
         final var session = this.sessions.remove(source);
 
-        log.warn("resync session {}: timeout", source);
+        log.warn("resync session {}: timeout (id = {})", source, session.sessionId);
 
         this.alarmForwarder.postEnd(session.sessionId, source.nodeId, false);
     }
@@ -184,7 +184,7 @@ public class EventHandler implements EventListener {
         final var session = this.sessions.get(source);
         session.lastEvent = Instant.now();
 
-        log.info("resync session {}: alarm - {}", source, event);
+        log.info("resync session {}: alarm - {} (id = {})", source, event, session.sessionId);
 
         final var alarm = Resync.Alarm.newBuilder();
         alarm.setUei(event.getUei());
@@ -236,6 +236,8 @@ public class EventHandler implements EventListener {
 
                     for (final var session : EventHandler.this.sessions.entrySet()) {
                         if (session.getValue().lastEvent.isBefore(timeout)) {
+                            log.info("resync session {}: timeout - send event", session.getKey());
+
                             EventHandler.this.eventForwarder.sendNow(new EventBuilder()
                                     .setTime(new Date())
                                     .setSource(EVENT_SOURCE)

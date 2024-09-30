@@ -18,6 +18,7 @@
 
         <bundle dependency="true">mvn:javax.ws.rs/javax.ws.rs-api/2.1.1</bundle>
         <bundle dependency="true">mvn:com.google.guava/guava/29.0-jre</bundle>
+        <bundle dependency="true">mvn:com.google.code.gson/gson/2.11.0</bundle>
 
         <bundle dependency="true">mvn:com.google.protobuf/protobuf-java/${protobuf.version}</bundle>
         <bundle dependency="true">mvn:com.google.protobuf/protobuf-java-util/${protobuf.version}</bundle>

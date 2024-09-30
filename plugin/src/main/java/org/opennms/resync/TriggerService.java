@@ -26,6 +26,7 @@ import lombok.Builder;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
+import lombok.extern.slf4j.Slf4j;
 import org.mapstruct.Mapper;
 import org.mapstruct.factory.Mappers;
 import org.opennms.core.utils.InetAddressUtils;
@@ -63,6 +64,7 @@ import static org.opennms.resync.constants.Events.UEI_RESYNC_ALARM;
 import static org.opennms.resync.constants.Events.UEI_RESYNC_FINISHED;
 import static org.opennms.resync.constants.Events.UEI_RESYNC_STARTED;
 
+@Slf4j
 @RequiredArgsConstructor
 public class TriggerService {
     // TODO: Maintain a global table of locks to track which system is in progress and disallow multiple concurring re-syncs
@@ -105,6 +107,8 @@ public class TriggerService {
     }
 
     public Future<Void> set(final SetRequest request) throws IOException {
+        log.info("trigger: set: {}", request);
+
         final var node = this.nodeDao.getNodeByCriteria(request.getNodeCriteria());
         if (node == null) {
             throw new NoSuchElementException("No such node: " + request.nodeCriteria);
@@ -175,6 +179,8 @@ public class TriggerService {
     }
 
     public Future<Void> get(final GetRequest request) throws IOException {
+        log.info("trigger: get: {}", request);
+
         final var node = this.nodeDao.getNodeByCriteria(request.getNodeCriteria());
         if (node == null) {
             throw new NoSuchElementException("No such node: " + request.nodeCriteria);

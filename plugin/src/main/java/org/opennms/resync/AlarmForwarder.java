@@ -22,6 +22,9 @@
 
 package org.opennms.resync;
 
+import com.google.protobuf.MessageOrBuilder;
+import com.google.protobuf.util.JsonFormat;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -50,28 +53,34 @@ public class AlarmForwarder {
     private final KafkaProducer<byte[], byte[]> producer;
 
     public AlarmForwarder(final ConfigurationAdmin configurationAdmin) throws IOException {
-        final Dictionary<String, Object> config = configurationAdmin.getConfiguration(OpennmsKafkaProducer.KAFKA_CLIENT_PID).getProperties();
-        if (config == null) {
-            log.warn("No kafka producer configuration found. Skipping alarm forwarding.");
+        final Dictionary<String, Object> clientConfig = configurationAdmin.getConfiguration("org.opennms.features.kafka.producer.client").getProperties();
+        if (clientConfig == null) {
+            log.warn("No kafka producer client configuration found.");
+            throw new IllegalStateException("No kafka producer client configuration found.");
+        }
+
+        final Dictionary<String, Object> producerConfig = configurationAdmin.getConfiguration("org.opennms.features.kafka.producer").getProperties();
+        if (producerConfig == null) {
+            log.warn("No kafka producer configuration found.");
             throw new IllegalStateException("No kafka producer configuration found.");
         }
 
-        this.topic = Objects.toString(Objects.requireNonNullElse(config.get("alarmTopic"), "alarms"));
+        this.topic = Objects.toString(Objects.requireNonNullElse(producerConfig.get("alarmTopic"), "alarms"));
 
-        final Properties producerConfig = new Properties();
+        final Properties producer = new Properties();
         {
-            final var keys = config.keys();
+            final var keys = clientConfig.keys();
             while (keys.hasMoreElements()) {
                 final var key = keys.nextElement();
-                final var val = config.get(key);
-                producerConfig.put(key, val);
+                final var val = clientConfig.get(key);
+                producer.put(key, val);
             }
         }
 
-        producerConfig.put("key.serializer", ByteArraySerializer.class.getCanonicalName());
-        producerConfig.put("value.serializer", ByteArraySerializer.class.getCanonicalName());
+        producer.put("key.serializer", ByteArraySerializer.class.getCanonicalName());
+        producer.put("value.serializer", ByteArraySerializer.class.getCanonicalName());
 
-        this.producer = runWithGivenClassLoader(() -> new KafkaProducer<>(producerConfig), AlarmForwarder.class.getClassLoader());
+        this.producer = runWithGivenClassLoader(() -> new KafkaProducer<>(producer), AlarmForwarder.class.getClassLoader());
     }
 
     private void send(final ProducerRecord<byte[], byte[]> record) {
@@ -96,6 +105,8 @@ public class AlarmForwarder {
                 .setResyncId(sessionId)
                 .build();
 
+        log.debug("post: start: {}", msgToJson(message));
+
         final var record = new ProducerRecord<>(this.topic, (byte[]) null, message.toByteArray());
         record.headers().add(HEADER_RESYNC_MARK_START, new byte[0]);
 
@@ -109,6 +120,8 @@ public class AlarmForwarder {
                 .setResyncId(sessionId)
                 .build();
 
+        log.debug("post: end: {}", msgToJson(message));
+
         final var record = new ProducerRecord<>(this.topic, (byte[]) null, message.toByteArray());
         record.headers().add(HEADER_RESYNC_MARK_END, new byte[0]);
 
@@ -119,6 +132,8 @@ public class AlarmForwarder {
         final var updatedAlarm = alarm.toBuilder()
                 .setResyncId(sessionId)
                 .build();
+
+        log.debug("post: alarm: {}", msgToJson(updatedAlarm));
 
         final var key = alarm.getReductionKey().getBytes(StandardCharsets.UTF_8);
 
@@ -137,5 +152,10 @@ public class AlarmForwarder {
         } finally {
             Thread.currentThread().setContextClassLoader(contextClassLoader);
         }
+    }
+
+    @SneakyThrows
+    private static String msgToJson(final MessageOrBuilder message) {
+        return JsonFormat.printer().print(message);
     }
 }
