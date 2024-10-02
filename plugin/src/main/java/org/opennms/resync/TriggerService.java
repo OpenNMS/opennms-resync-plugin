@@ -110,7 +110,6 @@ public class TriggerService {
     public Future<Void> set(final SetRequest request) throws IOException {
         log.info("trigger: set: {}", request);
 
-
         Node node = this.nodeDao.getNodeByLabel(request.getNodeCriteria());
         if (node == null) {
             node = this.nodeDao.getNodeByCriteria(request.getNodeCriteria());

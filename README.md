@@ -84,3 +84,17 @@ It has the following structure:
   ...
 }
 ```
+
+### Reduction key mapping
+The configured event should **not** be configured to have a reduction key set.
+If a reduction key is required on the produced alarms, a special parameter in the event definition could be used.
+The value of this parameter is set as reduction key in the resulting alarm.
+
+```
+<events xmlns="http://xmlns.opennms.org/xsd/eventconf">
+  <event>
+    <parameter name="resync-reduction-key" value="%uei%:%snmphost%:%nodeid%:%parm[#2]%" expand="true"/>
+  </event>
+</events>
+```
+

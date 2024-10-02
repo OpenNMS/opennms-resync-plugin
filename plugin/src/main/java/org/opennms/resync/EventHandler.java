@@ -33,6 +33,8 @@ import org.opennms.netmgt.events.api.EventListener;
 import org.opennms.netmgt.events.api.EventSubscriptionService;
 import org.opennms.netmgt.events.api.model.IAlarmData;
 import org.opennms.netmgt.events.api.model.IEvent;
+import org.opennms.netmgt.events.api.model.IParm;
+import org.opennms.netmgt.events.api.model.IValue;
 import org.opennms.netmgt.model.events.EventBuilder;
 import org.opennms.resync.proto.Resync;
 
@@ -42,6 +44,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
@@ -110,6 +113,8 @@ public class EventHandler implements EventListener {
         this.sessions.put(source, Session.builder()
                 .sessionId(sessionId)
                 .build());
+
+        log.info("resync session: {} - created (id = {}, handler = {})", source, sessionId, System.identityHashCode(this));
     }
 
     @Override
@@ -137,54 +142,54 @@ public class EventHandler implements EventListener {
 
     private synchronized void onStarted(final Source source, final IEvent event) {
         if (!this.sessions.containsKey(source)) {
-            log.warn("onStart: unknown session: {}", source);
+            log.warn("onStart: unknown session: {} (handler = {})", source, System.identityHashCode(this));
             return;
         }
 
         final var session = this.sessions.get(source);
 
-        log.info("resyc session {}: started (id = {})", source, session.sessionId);
+        log.info("resyc session {}: started (id = {}, handler = {})", source, session.sessionId, System.identityHashCode(this));
 
         this.alarmForwarder.postStart(session.sessionId, source.nodeId);
     }
 
     private synchronized void onFinished(final Source source, final IEvent event) {
         if (!this.sessions.containsKey(source)) {
-            log.warn("onFinished: unknown session: {}", source);
+            log.warn("onFinished: unknown session: {} (handler = {})", source, System.identityHashCode(this));
         }
 
         // TODO: Keep sessions there to get out status?
         final var session = this.sessions.remove(source);
 
-        log.info("resync session {}: completed (id = {})", source, session.sessionId);
+        log.info("resync session {}: completed (id = {}, handler = {})", source, session.sessionId, System.identityHashCode(this));
 
         this.alarmForwarder.postEnd(session.sessionId, source.nodeId, true);
     }
 
     private synchronized void onTimeout(final Source source, final IEvent event) {
         if (!this.sessions.containsKey(source)) {
-            log.warn("onTimeout: unknown session: {}", source);
+            log.warn("onTimeout: unknown session: {} (handler = {})", source, System.identityHashCode(this));
             return;
         }
 
         // TODO: Keep sessions there to get out status?
         final var session = this.sessions.remove(source);
 
-        log.warn("resync session {}: timeout (id = {})", source, session.sessionId);
+        log.warn("resync session {}: timeout (id = {}, handler = {})", source, session.sessionId, System.identityHashCode(this));
 
         this.alarmForwarder.postEnd(session.sessionId, source.nodeId, false);
     }
 
     private synchronized void onAlarm(final Source source, final IEvent event) {
         if (!this.sessions.containsKey(source)) {
-            log.info("onAlarm: unknown session - ignoring event: {}", source);
+            log.info("onAlarm: unknown session - ignoring event: {} (handler = {})", source, System.identityHashCode(this));
             return;
         }
 
         final var session = this.sessions.get(source);
         session.lastEvent = Instant.now();
 
-        log.info("resync session {}: alarm - {} (id = {})", source, event, session.sessionId);
+        log.info("resync session {}: alarm - {} (id = {}, handler = {})", source, event, session.sessionId, System.identityHashCode(this));
 
         final var alarm = Resync.Alarm.newBuilder();
         alarm.setUei(event.getUei());
@@ -206,6 +211,11 @@ public class EventHandler implements EventListener {
         applyNotNull(event.getSeverity(), alarm::setSeverity, s -> Resync.Severity.valueOf(s.toUpperCase()));
         applyNotNull(event.getAlarmData(), alarm::setReductionKey, IAlarmData::getReductionKey);
         applyNotNull(event.getAlarmData(), alarm::setClearKey, IAlarmData::getClearKey);
+
+        Optional.ofNullable(event.getParm("resync-reduction-key"))
+                .map(IParm::getValue)
+                .map(IValue::getContent)
+                .ifPresent(alarm::setReductionKey);
 
         this.alarmForwarder.postAlarm(session.sessionId, alarm.build());
     }
