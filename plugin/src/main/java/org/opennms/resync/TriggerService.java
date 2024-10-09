@@ -110,13 +110,7 @@ public class TriggerService {
     public Future<Void> set(final SetRequest request) throws IOException {
         log.info("trigger: set: {}", request);
 
-        Node node = this.nodeDao.getNodeByLabel(request.getNodeCriteria());
-        if (node == null) {
-            node = this.nodeDao.getNodeByCriteria(request.getNodeCriteria());
-        }
-        if (node == null) {
-            throw new NoSuchElementException("No such node: " + request.nodeCriteria);
-        }
+        final var node = this.findNode(request.nodeCriteria);
 
         final var iface = (request.ipInterface != null
                 ? node.getInterfaceByIp(request.ipInterface)
@@ -185,10 +179,7 @@ public class TriggerService {
     public Future<Void> get(final GetRequest request) throws IOException {
         log.info("trigger: get: {}", request);
 
-        final var node = this.nodeDao.getNodeByCriteria(request.getNodeCriteria());
-        if (node == null) {
-            throw new NoSuchElementException("No such node: " + request.nodeCriteria);
-        }
+        final var node = this.findNode(request.nodeCriteria);
 
         final var iface = (request.ipInterface != null
                 ? node.getInterfaceByIp(request.ipInterface)
@@ -252,6 +243,18 @@ public class TriggerService {
                             .setInterface(iface.getIpAddress())
                             .getEvent());
                 });
+    }
+
+    private Node findNode(final String nodeCriteria) {
+        Node node = this.nodeDao.getNodeByLabel(nodeCriteria);
+        if (node == null) {
+            node = this.nodeDao.getNodeByCriteria(nodeCriteria);
+        }
+        if (node == null) {
+            throw new NoSuchElementException("No such node: " + nodeCriteria);
+        }
+
+        return node;
     }
 
     private class AlarmTableTracker extends TableTracker {
