@@ -24,48 +24,57 @@ package org.opennms.resync.shell;
 
 import com.google.common.net.InetAddresses;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.NonNull;
 import lombok.Value;
 import org.apache.karaf.shell.api.action.Action;
 import org.apache.karaf.shell.api.action.Argument;
 import org.apache.karaf.shell.api.action.Option;
 import org.apache.karaf.shell.api.action.lifecycle.Reference;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.factory.Mappers;
 import org.opennms.resync.TriggerService;
 
 import java.net.InetAddress;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-public abstract class TriggerCommand<R> implements Action {
+public class TriggerCommand implements Action {
     @Reference
     protected TriggerService triggerService;
 
     @Argument(name = "node", required = true)
+    @Getter
     private String node;
 
     @Option(name = "interface")
+    @Getter
     private String ipInterface = null;
 
     @Option(name = "resync-id")
+    @Getter
     private String resyncId;
+
+    @Argument(name = "kind")
+    @Getter
+    private String kind;
+
+    @Argument(name = "params", required = true, index = 1)
+    @Getter
+    private Map<String, String> parameters;
 
     public final Object execute() throws Exception {
         final var ipInterface = this.ipInterface != null
                 ? InetAddresses.forString(this.ipInterface)
                 : null;
 
-        final var request = this.request(RequestData.builder()
-                .resyncId(this.resyncId != null
-                        ? this.resyncId
-                        : UUID.randomUUID().toString())
-                .node(this.node)
-                .ipInterface(ipInterface)
-                .build());
-
-        final var result = this.execute(request);
+        final var request = TriggerCommand.RequestMapper.INSTANCE.toRequest(this);
+        final var result = this.triggerService.trigger(request);
 
         while (!result.isDone()) {
             try {
@@ -84,19 +93,12 @@ public abstract class TriggerCommand<R> implements Action {
         return null;
     }
 
-    protected abstract R request(final RequestData data);
+    @Mapper(uses = TriggerService.TriggerMapper.class)
+    public interface RequestMapper {
+        TriggerCommand.RequestMapper INSTANCE = Mappers.getMapper(TriggerCommand.RequestMapper.class);
 
-    protected abstract Future<Void> execute(final R request) throws Exception;
-
-    @Value
-    @Builder
-    protected static class RequestData {
-        @NonNull
-        String resyncId;
-
-        @NonNull
-        String node;
-
-        InetAddress ipInterface;
+        @Mapping(target = "nodeCriteria", source = "node")
+        @Mapping(target = "sessionId", source = "resyncId")
+        TriggerService.Request toRequest(final TriggerCommand command);
     }
 }

@@ -34,12 +34,13 @@ import java.util.Map;
 @Value
 @Builder
 @Jacksonized
-public class GetConfig {
-    @NonNull
-    @Builder.Default
-    Map<String, SnmpObjId> columns = new LinkedHashMap<>();
+public class Config {
 
     @NonNull
     @Builder.Default
-    Map<String, String> parameters = new LinkedHashMap<>();
+    Map<String, NodeConfig> nodes = new LinkedHashMap<>();
+
+    @NonNull
+    @Builder.Default
+    Map<String, KindConfig> kinds = new LinkedHashMap<>();
 }

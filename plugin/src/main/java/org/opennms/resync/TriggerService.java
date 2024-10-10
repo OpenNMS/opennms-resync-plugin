@@ -31,7 +31,6 @@ import org.mapstruct.Mapper;
 import org.mapstruct.factory.Mappers;
 import org.opennms.core.utils.InetAddressUtils;
 import org.opennms.integration.api.v1.dao.NodeDao;
-import org.opennms.integration.api.v1.model.MetaData;
 import org.opennms.integration.api.v1.model.Node;
 import org.opennms.netmgt.config.api.SnmpAgentConfigFactory;
 import org.opennms.netmgt.events.api.EventForwarder;
@@ -43,7 +42,7 @@ import org.opennms.netmgt.snmp.TableTracker;
 import org.opennms.netmgt.snmp.proxy.LocationAwareSnmpClient;
 import org.opennms.netmgt.snmp.snmp4j.Snmp4JValueFactory;
 import org.opennms.resync.config.Configs;
-import org.opennms.resync.config.GetConfig;
+import org.opennms.resync.config.KindConfig;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -92,7 +91,7 @@ public class TriggerService {
 
     @Value
     @Builder
-    public static class SetRequest {
+    public static class Request {
         @NonNull
         String nodeCriteria;
 
@@ -102,12 +101,26 @@ public class TriggerService {
         @NonNull
         String sessionId;
 
+        String kind;
+
         @NonNull
         @Builder.Default
-        Map<SnmpObjId, SnmpValue> attrs = new HashMap<>();
+        Map<String, String> parameters = new HashMap<>();
     }
 
-    public Future<Void> set(final SetRequest request) throws IOException {
+    public Future<Void> trigger(final Request request) throws IOException {
+        final var node = this.findNode(request.nodeCriteria);
+
+        final var config = this.configs.getConfig(node.getLabel(), request.kind);
+
+        switch (config.getMode()) {
+            case SET: return this.set(request, config);
+            case GET: return this.get(request, config);
+            default: throw new IllegalStateException("Unsupported mode: " + config.getMode());
+        }
+    }
+
+    private Future<Void> set(final Request request, final KindConfig config) throws IOException {
         log.info("trigger: set: {}", request);
 
         final var node = this.findNode(request.nodeCriteria);
@@ -137,15 +150,26 @@ public class TriggerService {
                 .setInterface(iface.getIpAddress())
                 .getEvent());
 
-        final var attrs = new HashMap<>(request.attrs);
-        extractMetaDataAttrs(node.getMetaData(), attrs);
-        extractMetaDataAttrs(iface.getMetaData(), attrs);
+        final var parameters = new HashMap<String, String>();
+        parameters.putAll(config.getParameters());
+        parameters.putAll(request.getParameters());
 
+        // Resolve all columns to attributes
         // The following two arrays are co-indexed
-        final var oids = request.attrs.entrySet().stream().map(Map.Entry::getKey).toArray(SnmpObjId[]::new);
-        final var vals = request.attrs.entrySet().stream().map(Map.Entry::getValue).toArray(SnmpValue[]::new);
+        final var oids = new ArrayList<SnmpObjId>(config.getColumns().size());
+        final var vals = new ArrayList<SnmpValue>(config.getColumns().size());
 
-        final var response = this.snmpClient.set(agent, oids, vals)
+        for (final var e : config.getColumns().entrySet()) {
+            var value = parameters.get(e.getKey());
+            if (value == null) {
+                throw new IllegalArgumentException("No value defined for parameter: " + e.getKey());
+            }
+
+            oids.add(e.getValue());
+            vals.add(TriggerMapper.INSTANCE.snmpValue(value));
+        }
+
+        final var response = this.snmpClient.set(agent, oids.toArray(SnmpObjId[]::new), vals.toArray(SnmpValue[]::new))
                 .withLocation(node.getLocation())
                 .execute();
 
@@ -160,23 +184,7 @@ public class TriggerService {
         return result;
     }
 
-    @Value
-    @Builder
-    public static class GetRequest {
-        @NonNull
-        String nodeCriteria;
-
-        @Builder.Default
-        InetAddress ipInterface = null;
-
-        @NonNull
-        String sessionId;
-
-        @NonNull
-        String kind;
-    }
-
-    public Future<Void> get(final GetRequest request) throws IOException {
+    private Future<Void> get(final Request request, final KindConfig config) throws IOException {
         log.info("trigger: get: {}", request);
 
         final var node = this.findNode(request.nodeCriteria);
@@ -185,11 +193,6 @@ public class TriggerService {
                 ? node.getInterfaceByIp(request.ipInterface)
                 : node.getIpInterfaces().stream().findFirst())
                 .orElseThrow(() -> new NoSuchElementException("Requested interface not found on node"));
-
-        final var config = this.configs.getConfig(request.kind);
-        if (config == null) {
-            throw new IllegalArgumentException("Unknown kind: " + request.kind);
-        }
 
         final var agent = this.snmpAgentConfigFactory.getAgentConfig(iface.getIpAddress(), node.getLocation());
         // TODO: Error handling?
@@ -228,9 +231,8 @@ public class TriggerService {
                         }
 
                         // Apply parameters
-                        for (final var e : config.getParameters().entrySet()) {
-                            event.addParam(e.getKey(), e.getValue());
-                        }
+                        config.getParameters().forEach(event::addParam);
+                        request.getParameters().forEach(event::addParam);
 
                         TriggerService.this.eventForwarder.sendNow(event.getEvent());
                     }
@@ -246,23 +248,27 @@ public class TriggerService {
     }
 
     private Node findNode(final String nodeCriteria) {
-        Node node = this.nodeDao.getNodeByLabel(nodeCriteria);
-        if (node == null) {
-            node = this.nodeDao.getNodeByCriteria(nodeCriteria);
-        }
-        if (node == null) {
-            throw new NoSuchElementException("No such node: " + nodeCriteria);
+        Node node;
+
+        node = this.nodeDao.getNodeByLabel(nodeCriteria);
+        if (node != null) {
+            return node;
         }
 
-        return node;
+        node = this.nodeDao.getNodeByCriteria(nodeCriteria);
+        if (node != null) {
+            return node;
+        }
+
+        throw new NoSuchElementException("No such node: " + nodeCriteria);
     }
 
     private class AlarmTableTracker extends TableTracker {
         public List<Map<String, String>> results = new ArrayList<>();
 
-        private final GetConfig config;
+        private final KindConfig config;
 
-        public AlarmTableTracker(final GetConfig config) {
+        public AlarmTableTracker(final KindConfig config) {
             super(config.getColumns().values().toArray(SnmpObjId[]::new));
 
             this.config = config;
@@ -289,28 +295,6 @@ public class TriggerService {
         }
     }
 
-    private static void extractMetaDataAttrs(final List<MetaData> metaData,
-                                             final HashMap<SnmpObjId, SnmpValue> attrs) {
-        for (final var e : metaData) {
-            if (!e.getContext().equals("requisition")) {
-                continue;
-            }
-
-            if (!e.getKey().startsWith(META_DATA_PREFIX)) {
-                continue;
-            }
-
-            final var key = e.getKey().substring(META_DATA_PREFIX.length());
-            final var oid = SnmpObjId.get(key);
-
-            final var val = new Snmp4JValueFactory().getOctetString(e.getValue().getBytes(StandardCharsets.UTF_8));
-
-            attrs.put(oid, val);
-        }
-    }
-
-
-
     @Mapper
     public interface TriggerMapper {
         TriggerMapper INSTANCE = Mappers.getMapper(TriggerMapper.class);
@@ -326,7 +310,5 @@ public class TriggerService {
         default SnmpValue snmpValue(final String value) {
             return new Snmp4JValueFactory().getOctetString(value.getBytes(StandardCharsets.UTF_8));
         }
-
-        Map<SnmpObjId, SnmpValue> attrs(final Map<String, String> attrs);
     }
 }

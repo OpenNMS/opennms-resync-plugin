@@ -24,9 +24,7 @@ package org.opennms.resync.config;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import org.osgi.service.cm.ConfigurationAdmin;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -38,15 +36,29 @@ public class Configs {
 
     private final static ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    public GetConfig getConfig(final String kind) throws IOException {
-        final var path = Paths.get(System.getProperty("opennms.home"), "etc", "resync-get.json");
+    public KindConfig getConfig(final String node, String kind) throws IOException {
+        final var path = Paths.get(System.getProperty("opennms.home"), "etc", "resync.json");
 
-        final HashMap<String, GetConfig> configs;
+        final Config config;
         try (final var reader = Files.newBufferedReader(path)) {
-            configs = OBJECT_MAPPER.readValue(reader, new TypeReference<>() {});
+            config = OBJECT_MAPPER.readValue(reader, new TypeReference<>() {});
         }
 
-        return configs.get(kind);
+        if (kind == null) {
+            final NodeConfig nodeConfig = config.getNodes().get(node);
+            if (nodeConfig == null) {
+                throw new IllegalArgumentException("No config found for node: " + node);
+            }
+
+            kind = nodeConfig.getKind();
+        }
+
+        final var kindConfig = config.getKinds().get(kind);
+        if (kindConfig == null) {
+            throw new IllegalArgumentException("No config found for kind: " + kind);
+        }
+
+        return kindConfig;
     }
 
 }

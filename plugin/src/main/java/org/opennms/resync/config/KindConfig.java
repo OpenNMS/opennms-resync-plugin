@@ -20,57 +20,34 @@
  * License.
  */
 
-package org.opennms.resync;
+package org.opennms.resync.config;
 
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
 import lombok.extern.jackson.Jacksonized;
+import org.opennms.netmgt.snmp.SnmpObjId;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
-@Path("resync")
-public interface WebhookHandler {
+@Value
+@Builder
+@Jacksonized
+public class KindConfig {
 
-    @GET
-    @Path("/ping")
-    Response ping();
-
-    @POST
-    @Path("/trigger")
-    @Produces({MediaType.APPLICATION_JSON})
-    @Consumes({MediaType.APPLICATION_JSON})
-    Response trigger(TriggerRequest request) throws Exception;
-
-    @Value
-    @Builder
-    @Jacksonized
-    class TriggerRequest {
-        @NonNull
-        String resyncId;
-
-        @NonNull
-        String node;
-
-        @Builder.Default
-        String ipInterface = null;
-
-        @Builder.Default
-        String kind = null;
-
-        @NonNull
-        @Builder.Default
-        Map<String, String> parameters = new HashMap<>();
-
-        @Builder.Default
-        boolean sync = false;
+    public enum Mode {
+        GET, SET
     }
+
+    @NonNull
+    Mode mode;
+
+    @NonNull
+    @Builder.Default
+    Map<String, SnmpObjId> columns = new LinkedHashMap<>();
+
+    @NonNull
+    @Builder.Default
+    Map<String, String> parameters = new LinkedHashMap<>();
 }

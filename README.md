@@ -27,61 +27,47 @@ You can also access the REST endpoint mounted by the plugin:
 
 The `trigger`-endpoint provides two modes which can be selected by the `mode` field: `SET` or `GET`.
 
-There request for `SET` mode looks like this:
+There request for a resync looks like this:
 ```http request
 Accept: application/json
 Content-Type: application/json
   
 {
-  "mode": "SET",
   "resyncId": "my unique ID",
-  "node": "1",
-  "ipInterface": "127.0.0.1",
-  "attrs": {
-    ".1.2.3.4.5": "all"
+  "node": "1",   # Can be a node ID, a foreignSource:foreignId or a node label
+  "ipInterface": "127.0.0.1",  # Optional, will use primary interface if omitted
+  "kind": "my-device-type",  # Optional, will look up from config if omitted
+  "parameters": {  # Fill in missing parameters or overwrite existing
+    "param1": "all",
+    "param2": "all"
   }
 }
 ```
 
-There request for `GET` mode looks like this:
-```http request
-Accept: application/json
-Content-Type: application/json
-  
-{
-  "mode": "GET",
-  "resyncId": "my unique ID",
-  "node": "1",
-  "ipInterface": "127.0.0.1",
-  "kind": "example-kind"
-}
-```
-Where the `kind`-field refers to an entry in the config file for get mode.
-
 ## Configuration
 The plugin picks up the configuration of the OpenNMS Kafka Producer.
 
-To configure which SNMP OIDs are sent on a `SET` request, the OIDs and according values can be set in multiple ways:
-- By setting node level meta-data in the context `requisition` and a key starting with the prefix `resync:`. 
-- By setting interface level meta-data in the context `requisition` and a key starting with the prefix `resync:`.
-- By adding entries to the `attrs` property in the request.
-
-To configure which SNMP OIDs to query on a `GET` request, there is a config file which must exist on `$OPENNMS_HOME/etc/resync-get.json`.
+There is a config file which must exist on `$OPENNMS_HOME/etc/resync.json`.
 It has the following structure:
 ```json
 {
-  "example-kind": {
-    "columns": {
-      "param1": "1.3.6.0.0.1",
-      "param2": "1.3.6.0.0.2",
-      ...
-    },
-    "parameters": {
-      "param3": "example value",
-      ...
+  "nodes": {
+    "my.node.label": {
+      "kind": "example-kind"
     }
   },
-  ...
+  "kinds": {
+    "example-kind": {
+      "mode": "GET",  # or "SET"
+      "columns": {
+        "param1": "1.3.6.0.0.1",
+        "param2": "1.3.6.0.0.2"
+      },
+      "parameters": {
+        "param2": "example value"
+      }
+    }
+  }
 }
 ```
 

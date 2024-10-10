@@ -50,20 +50,7 @@ public class WebhookHandlerImpl implements WebhookHandler {
     public Response trigger(final TriggerRequest request) throws IOException, ExecutionException, InterruptedException {
         log.debug("trigger: {}", request);
 
-        // TODO: Extract default mode from node meta-data
-
-
-        final Future<Void> result;
-        switch (request.getMode()) {
-            case SET:
-                result = this.triggerService.set(TriggerRequestMapper.INSTANCE.toSetRequest(request));
-                break;
-            case GET:
-                result = this.triggerService.get(TriggerRequestMapper.INSTANCE.toGetRequest(request));
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported mode: " + request.getMode());
-        }
+        final Future<Void> result = this.triggerService.trigger(TriggerRequestMapper.INSTANCE.toRequest(request));
 
         if (request.isSync()) {
             result.get();
@@ -78,11 +65,7 @@ public class WebhookHandlerImpl implements WebhookHandler {
 
         @Mapping(target = "nodeCriteria", source = "node")
         @Mapping(target = "sessionId", source = "resyncId")
-        TriggerService.SetRequest toSetRequest(final TriggerRequest request);
-
-        @Mapping(target = "nodeCriteria", source = "node")
-        @Mapping(target = "sessionId", source = "resyncId")
-        TriggerService.GetRequest toGetRequest(final TriggerRequest request);
+        TriggerService.Request toRequest(final WebhookHandler.TriggerRequest request);
     }
 }
 
