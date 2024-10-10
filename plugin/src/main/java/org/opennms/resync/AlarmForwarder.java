@@ -52,19 +52,18 @@ public class AlarmForwarder {
     private final KafkaProducer<byte[], byte[]> producer;
 
     public AlarmForwarder(final ConfigurationAdmin configurationAdmin) throws IOException {
+        final Dictionary<String, Object> producerConfig = configurationAdmin.getConfiguration("org.opennms.features.kafka.producer").getProperties();
+        if (producerConfig != null) {
+            this.topic = Objects.toString(Objects.requireNonNullElse(producerConfig.get("alarmTopic"), "alarms"));
+        } else {
+            this.topic = "alarms";
+        }
+
         final Dictionary<String, Object> clientConfig = configurationAdmin.getConfiguration("org.opennms.features.kafka.producer.client").getProperties();
         if (clientConfig == null) {
             log.warn("No kafka producer client configuration found.");
             throw new IllegalStateException("No kafka producer client configuration found.");
         }
-
-        final Dictionary<String, Object> producerConfig = configurationAdmin.getConfiguration("org.opennms.features.kafka.producer").getProperties();
-        if (producerConfig == null) {
-            log.warn("No kafka producer configuration found.");
-            throw new IllegalStateException("No kafka producer configuration found.");
-        }
-
-        this.topic = Objects.toString(Objects.requireNonNullElse(producerConfig.get("alarmTopic"), "alarms"));
 
         final Properties producer = new Properties();
         {
