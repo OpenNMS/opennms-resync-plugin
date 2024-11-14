@@ -37,13 +37,13 @@ commands:
         - run:
             name: git clone
             command: |
-              git clone --no-checkout --filter=tree:0 "https://github.com/OpenNMS/opennms.git" ~/opennms
-              if [ -n "${CIRCLE_TAG}" ]; then
-                git checkout --force "${CIRCLE_TAG}"
-                git reset --hard "${CIRCLE_SHA1}"
-              else
-                git checkout --force -B "${CIRCLE_BRANCH}" "${CIRCLE_SHA1}"
-              fi
+              git clone  "https://github.com/OpenNMS/opennms.git" ~/opennms
+              #if [ -n "${CIRCLE_TAG}" ]; then
+              #  git checkout --force "${CIRCLE_TAG}"
+              #  git reset --hard "${CIRCLE_SHA1}"
+              #else
+              #  git checkout --force -B "${CIRCLE_BRANCH}" "${CIRCLE_SHA1}"
+              #fi
   build:
     description: "Build Resync Plugin"
     steps:
