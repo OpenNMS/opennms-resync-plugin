@@ -31,6 +31,19 @@ commands:
               else
                 git checkout --force -B "${CIRCLE_BRANCH}" "${CIRCLE_SHA1}"
               fi
+  clone-opennms:
+      description: "Clone Opennms"
+      steps:
+        - run:
+            name: git clone
+            command: |
+              git clone "https://github.com/OpenNMS/opennms.git" opennms
+             #if [ -n "${CIRCLE_TAG}" ]; then
+             #  git checkout --force "${CIRCLE_TAG}"
+             #  git reset --hard "${CIRCLE_SHA1}"
+             #else
+             #  git checkout --force -B "${CIRCLE_BRANCH}" "${CIRCLE_SHA1}"
+             #fi
   build:
     description: "Build Resync Plugin"
     steps:
@@ -39,6 +52,11 @@ commands:
             - v1-dependencies-{{ checksum "pom.xml" }}
             # fallback to using the latest cache if no exact match is found
             - v1-dependencies-
+      - run:
+          name: Compile source without tests
+          command: |
+            cd opennms
+            mvn -DskipITs=true -DskipTests=true clean install
       - run:
           name: Compile source without tests
           command: |
