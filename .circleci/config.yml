@@ -37,9 +37,7 @@ commands:
         - run:
             name: git clone
             command: |
-              ls
-              git clone --no-checkout --filter=tree:0 "https://github.com/OpenNMS/opennms.git" opennms
-              ls
+              git clone --no-checkout --filter=tree:0 "https://github.com/OpenNMS/opennms.git" ~/opennms
              #if [ -n "${CIRCLE_TAG}" ]; then
              #  git checkout --force "${CIRCLE_TAG}"
              #  git reset --hard "${CIRCLE_SHA1}"
@@ -58,8 +56,8 @@ commands:
           name: Compile source without tests
           command: |
             sudo apt update && sudo apt install nodejs npm
-            cd opennms
-            opennms/maven/bin/mvn -DskipITs=true -DskipTests=true clean install
+            cd ~/opennms
+            ./maven/bin/mvn -DskipITs=true -DskipTests=true clean install
       - run:
           name: Compile source without tests
           command: |
