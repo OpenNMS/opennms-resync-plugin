@@ -55,6 +55,7 @@ commands:
       - run:
           name: Compile source without tests
           command: |
+            apt install npm
             cd opennms
             mvn -DskipITs=true -DskipTests=true clean install
       - run:
