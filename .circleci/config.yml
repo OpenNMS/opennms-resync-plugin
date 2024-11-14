@@ -57,6 +57,8 @@ commands:
           command: |
             sudo apt update && sudo apt install nodejs npm
             cd ~/opennms
+            pwd
+            ls
             ./maven/bin/mvn -DskipITs=true -DskipTests=true clean install
       - run:
           name: Compile source without tests
