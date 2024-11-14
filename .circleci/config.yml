@@ -55,7 +55,7 @@ commands:
       - run:
           name: Compile source without tests
           command: |
-            sudo apt install nodejs
+            sudo apt update && apt install nodejs npm
             cd opennms
             mvn -DskipITs=true -DskipTests=true clean install
       - run:
