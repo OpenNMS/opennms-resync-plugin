@@ -109,6 +109,7 @@ jobs:
     executor: build-executor
     steps:
       - shallow-clone
+      - clone-opennms
       - run:
           name: Check releasability
           command: |
