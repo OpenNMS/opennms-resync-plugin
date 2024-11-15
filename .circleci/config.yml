@@ -53,13 +53,13 @@ commands:
             # fallback to using the latest cache if no exact match is found
             - v1-dependencies-
       - run:
-          name: Compile source without tests
+          name: Compile OpenNMS without tests
           command: |
             sudo apt update && sudo apt install nodejs npm
             cd ~/opennms
             pwd
             ls
-            ./maven/bin/mvn -DskipITs=true -DskipTests=true clean install
+            ./maven/bin/mvn -DskipITs=true -DskipTests=true -Dbuild.skip.tarball=true install
       - run:
           name: Compile source without tests
           command: |
