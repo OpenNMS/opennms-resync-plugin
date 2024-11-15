@@ -59,6 +59,7 @@ commands:
             cd ~/opennms
             pwd
             ls
+            ulimit -n 65536
             ./maven/bin/mvn -DskipITs=true -DskipTests=true -Dbuild.skip.tarball=true install
       - run:
           name: Compile source without tests
