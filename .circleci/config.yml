@@ -60,8 +60,7 @@ commands:
             ulimit -n 65536
             export MAVEN_OPTS="-Xmx8g -XX:ReservedCodeCacheSize=1g -XX:+TieredCompilation"
             ./compile.pl -DskipTests=true -Dbuild.skip.tarball=true
-            #./maven/bin/mvn -DskipITs=true -DskipTests=true -Dbuild.skip.tarball=true -Xmx8g -XX:ReservedCodeCacheSize=1g -XX:+TieredCompilation install #-pl "!:org.opennms.core.web-assets,:org.opennms.features.collection.client-rpc,:org.opennms.features.kafka.producer -am
-            #./maven/bin/mvn -DskipITs=true -DskipTests=true -Dbuild.skip.tarball=true install 
+            ./maven/bin/mvn -DskipITs=true -DskipTests=true -Dbuild.skip.tarball=true  install
             cd -
             mvn -DskipITs=true -DskipTests=true clean install
             mkdir ~/output
