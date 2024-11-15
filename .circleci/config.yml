@@ -58,7 +58,7 @@ commands:
             sudo apt update && sudo apt install nodejs npm
             cd ~/opennms
             ulimit -n 65536
-            ./maven/bin/mvn -DskipITs=true -DskipTests=true -Dbuild.skip.tarball=true install -pl :org.opennms.features
+            ./maven/bin/mvn -DskipITs=true -DskipTests=true -Dbuild.skip.tarball=true install -pl :org.opennms.features -am
             cd -
             mvn -DskipITs=true -DskipTests=true clean install
             mkdir ~/output
