@@ -64,7 +64,7 @@ commands:
       - run:
           name: Compile source without tests
           command: |
-            cd resync
+            #cd resync
             mvn -DskipITs=true -DskipTests=true clean install
             mkdir ~/output
             find ~/project -type f -regex ".*.kar" -exec cp {} ~/output \;
