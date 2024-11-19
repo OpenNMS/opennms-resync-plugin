@@ -55,7 +55,7 @@ commands:
       - run:
           name: Compile OpenNMS without tests
           command: |
-            sudo apt install -y npm
+            sudo apt update && apt install -y npm
             cd ~/opennms
             ulimit -n 1048576
             export MAVEN_OPTS="-Xmx8g -XX:ReservedCodeCacheSize=1g -XX:+TieredCompilation"
