@@ -55,13 +55,13 @@ commands:
       - run:
           name: Compile OpenNMS without tests
           command: |
-            sudo apt update && sudo apt install nodejs npm
+            sudo apt install -y npm
             cd ~/opennms
-            ulimit -n 65536
+            ulimit -n 1048576
             export MAVEN_OPTS="-Xmx8g -XX:ReservedCodeCacheSize=1g -XX:+TieredCompilation"
-            ./compile.pl -DskipTests=true -Dbuild.skip.tarball=true
             ./maven/bin/mvn -DskipITs=true -DskipTests=true -Dbuild.skip.tarball=true  install
             cd -
+            echo "Building RESYNC" 
             mvn -DskipITs=true -DskipTests=true clean install
             mkdir ~/output
             find ~/project -type f -regex ".*.kar" -exec cp {} ~/output \;
