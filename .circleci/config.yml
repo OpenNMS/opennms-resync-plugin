@@ -57,7 +57,7 @@ commands:
           command: |
             sudo apt update && sudo apt install -y npm
             cd ~/opennms
-            ulimit -n 1048576
+            #ulimit -n 1048576
             export MAVEN_OPTS="-Xmx8g -XX:ReservedCodeCacheSize=1g -XX:+TieredCompilation"
             ./maven/bin/mvn -DskipITs=true -DskipTests=true -Dbuild.skip.tarball=true  install
             cd -
