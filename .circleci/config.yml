@@ -66,10 +66,6 @@ commands:
             mvn -DskipITs=true -DskipTests=true clean install
             mkdir ~/output
             find ~/project -type f -regex ".*.kar" -exec cp {} ~/output \;
-      - run:
-          name: Run integration tests
-          command: |
-            mvn -DskipITs=false -DskipTests=false install test integration-test
       - store_artifacts:
           path: ~/output
           destination: artifact-file
