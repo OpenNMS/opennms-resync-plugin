@@ -68,7 +68,7 @@ public interface WebhookHandler {
 
         @NonNull
         @Builder.Default
-        Map<String, String> parameters = new HashMap<>();
+        Map<String, Object> parameters = new HashMap<>();
 
         @Builder.Default
         boolean sync = false;
