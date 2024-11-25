@@ -22,6 +22,7 @@
 
 package org.opennms.resync;
 
+import com.google.common.collect.Maps;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NonNull;
@@ -107,14 +108,14 @@ public class EventHandler implements EventListener {
 
     public synchronized void createSession(final Source source,
                                            final String sessionId,
-                                           final HashMap<String, String> parameters) {
+                                           final HashMap<String, Object> parameters) {
         if (this.sessions.containsKey(source)) {
             throw new IllegalStateException("session already exists for source: " + source);
         }
 
         this.sessions.put(source, Session.builder()
                 .sessionId(sessionId)
-                .parameters(parameters)
+                .parameters(Maps.transformValues(parameters, Object::toString))
                 .build());
 
         log.info("resync session: {} - created (id = {}, handler = {})", source, sessionId, System.identityHashCode(this));
@@ -240,7 +241,7 @@ public class EventHandler implements EventListener {
         private Instant lastEvent = Instant.now();
 
         @NonNull
-        private HashMap<String, String> parameters;
+        private Map<String, String> parameters;
     }
 
     private TimerTask timer() {
