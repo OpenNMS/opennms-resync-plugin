@@ -47,6 +47,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -105,13 +106,15 @@ public class EventHandler implements EventListener {
     }
 
     public synchronized void createSession(final Source source,
-                                           final String sessionId) {
+                                           final String sessionId,
+                                           final HashMap<String, String> parameters) {
         if (this.sessions.containsKey(source)) {
             throw new IllegalStateException("session already exists for source: " + source);
         }
 
         this.sessions.put(source, Session.builder()
                 .sessionId(sessionId)
+                .parameters(parameters)
                 .build());
 
         log.info("resync session: {} - created (id = {}, handler = {})", source, sessionId, System.identityHashCode(this));
@@ -150,7 +153,7 @@ public class EventHandler implements EventListener {
 
         log.info("resyc session {}: started (id = {}, handler = {})", source, session.sessionId, System.identityHashCode(this));
 
-        this.alarmForwarder.postStart(session.sessionId, source.nodeId);
+        this.alarmForwarder.postStart(session.sessionId, source.nodeId, session.parameters);
     }
 
     private synchronized void onFinished(final Source source, final IEvent event) {
@@ -163,7 +166,7 @@ public class EventHandler implements EventListener {
 
         log.info("resync session {}: completed (id = {}, handler = {})", source, session.sessionId, System.identityHashCode(this));
 
-        this.alarmForwarder.postEnd(session.sessionId, source.nodeId, true);
+        this.alarmForwarder.postEnd(session.sessionId, source.nodeId, session.parameters, true);
     }
 
     private synchronized void onTimeout(final Source source, final IEvent event) {
@@ -177,7 +180,7 @@ public class EventHandler implements EventListener {
 
         log.warn("resync session {}: timeout (id = {}, handler = {})", source, session.sessionId, System.identityHashCode(this));
 
-        this.alarmForwarder.postEnd(session.sessionId, source.nodeId, false);
+        this.alarmForwarder.postEnd(session.sessionId, source.nodeId, session.parameters, false);
     }
 
     private synchronized void onAlarm(final Source source, final IEvent event) {
@@ -235,6 +238,9 @@ public class EventHandler implements EventListener {
 
         @Builder.Default
         private Instant lastEvent = Instant.now();
+
+        @NonNull
+        private HashMap<String, String> parameters;
     }
 
     private TimerTask timer() {

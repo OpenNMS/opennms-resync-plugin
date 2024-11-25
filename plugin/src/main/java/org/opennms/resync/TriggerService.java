@@ -133,13 +133,16 @@ public class TriggerService {
         final var agent = this.snmpAgentConfigFactory.getAgentConfig(iface.getIpAddress(), node.getLocation());
         // TODO: Error handling?
 
-        final var result = new CompletableFuture<Void>();
+        final var parameters = new HashMap<String, String>();
+        parameters.putAll(config.getParameters());
+        parameters.putAll(request.getParameters());
 
         this.eventHandler.createSession(EventHandler.Source.builder()
                         .nodeId(node.getId().longValue())
                         .iface(iface.getIpAddress())
                         .build(),
-                request.sessionId);
+                request.sessionId,
+                parameters);
         // TODO: This excepts on duplicate session? Should we wait?
 
         this.eventForwarder.sendNow(new EventBuilder()
@@ -150,9 +153,7 @@ public class TriggerService {
                 .setInterface(iface.getIpAddress())
                 .getEvent());
 
-        final var parameters = new HashMap<String, String>();
-        parameters.putAll(config.getParameters());
-        parameters.putAll(request.getParameters());
+        final var result = new CompletableFuture<Void>();
 
         // Resolve all columns to attributes
         // The following two arrays are co-indexed
@@ -197,11 +198,16 @@ public class TriggerService {
         final var agent = this.snmpAgentConfigFactory.getAgentConfig(iface.getIpAddress(), node.getLocation());
         // TODO: Error handling?
 
+        final var parameters = new HashMap<String, String>();
+        parameters.putAll(config.getParameters());
+        parameters.putAll(request.getParameters());
+
         this.eventHandler.createSession(EventHandler.Source.builder()
                         .nodeId(node.getId().longValue())
                         .iface(iface.getIpAddress())
                         .build(),
-                request.sessionId);
+                request.sessionId,
+                parameters);
         // TODO: This excepts on duplicate session? Should we wait?
 
         return this.snmpClient.walk(agent, new AlarmTableTracker(config))
@@ -231,8 +237,7 @@ public class TriggerService {
                         }
 
                         // Apply parameters
-                        config.getParameters().forEach(event::addParam);
-                        request.getParameters().forEach(event::addParam);
+                        parameters.forEach(event::addParam);
 
                         TriggerService.this.eventForwarder.sendNow(event.getEvent());
                     }
