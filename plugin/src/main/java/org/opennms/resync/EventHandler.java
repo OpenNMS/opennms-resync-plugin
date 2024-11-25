@@ -221,6 +221,22 @@ public class EventHandler implements EventListener {
                 .map(IValue::getContent)
                 .ifPresent(alarm::setReductionKey);
 
+        final var alarEvent = Resync.Event.newBuilder();
+        applyNotNull(event.getUei(), alarEvent::setUei);
+        applyNotNull(event.getTime(), alarEvent::setTime, Date::getTime);
+        applyNotNull(event.getSource(), alarEvent::setSource);
+        applyNotNull(event.getCreationTime(), alarEvent::setCreateTime, Date::getTime);
+        applyNotNull(event.getDescr(), alarEvent::setDescription);
+        applyNotNull(event.getLogmsg().getContent(), alarEvent::setLogMessage);
+        applyNotNull(event.getService(), alarEvent::setSeverity, s -> Resync.Severity.valueOf(s.toUpperCase()));
+
+        event.getParmCollection().stream()
+                .map(param -> Resync.EventParameter.newBuilder()
+                        .setName(param.getParmName())
+                        .setType(param.getValue().getType())
+                        .setValue(param.getValue().getContent()))
+                .forEach(alarEvent::addParameter);
+
         this.alarmForwarder.postAlarm(session.sessionId, alarm.build());
     }
 
