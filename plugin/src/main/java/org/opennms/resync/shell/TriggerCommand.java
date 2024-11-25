@@ -66,7 +66,7 @@ public class TriggerCommand implements Action {
 
     @Argument(name = "params", required = true, index = 1)
     @Getter
-    private Map<String, String> parameters;
+    private Map<String, Object> parameters;
 
     public final Object execute() throws Exception {
         final var ipInterface = this.ipInterface != null

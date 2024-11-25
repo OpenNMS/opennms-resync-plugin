@@ -105,7 +105,7 @@ public class TriggerService {
 
         @NonNull
         @Builder.Default
-        Map<String, String> parameters = new HashMap<>();
+        Map<String, Object> parameters = new HashMap<>();
     }
 
     public Future<Void> trigger(final Request request) throws IOException {
@@ -133,7 +133,7 @@ public class TriggerService {
         final var agent = this.snmpAgentConfigFactory.getAgentConfig(iface.getIpAddress(), node.getLocation());
         // TODO: Error handling?
 
-        final var parameters = new HashMap<String, String>();
+        final var parameters = new HashMap<String, Object>();
         parameters.putAll(config.getParameters());
         parameters.putAll(request.getParameters());
 
@@ -198,7 +198,7 @@ public class TriggerService {
         final var agent = this.snmpAgentConfigFactory.getAgentConfig(iface.getIpAddress(), node.getLocation());
         // TODO: Error handling?
 
-        final var parameters = new HashMap<String, String>();
+        final var parameters = new HashMap<String, Object>();
         parameters.putAll(config.getParameters());
         parameters.putAll(request.getParameters());
 
@@ -237,7 +237,7 @@ public class TriggerService {
                         }
 
                         // Apply parameters
-                        parameters.forEach(event::addParam);
+                        parameters.forEach((k, v) -> event.addParam(k, v.toString()));
 
                         TriggerService.this.eventForwarder.sendNow(event.getEvent());
                     }
@@ -312,8 +312,14 @@ public class TriggerService {
             return SnmpObjId.get(oid);
         }
 
-        default SnmpValue snmpValue(final String value) {
-            return new Snmp4JValueFactory().getOctetString(value.getBytes(StandardCharsets.UTF_8));
+        default SnmpValue snmpValue(final Object value) {
+            if (value instanceof String) {
+                return new Snmp4JValueFactory().getOctetString(((String) value).getBytes(StandardCharsets.UTF_8));
+            } else if (value instanceof Integer) {
+                return new Snmp4JValueFactory().getInt32(((Integer) value));
+            } else {
+                throw new IllegalArgumentException("Unsupported SNMP value type: " + value.getClass());
+            }
         }
     }
 }

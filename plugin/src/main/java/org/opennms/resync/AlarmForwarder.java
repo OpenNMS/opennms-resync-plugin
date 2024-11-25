@@ -35,7 +35,7 @@ import org.osgi.service.cm.ConfigurationAdmin;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Dictionary;
-import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
@@ -98,7 +98,7 @@ public class AlarmForwarder {
         }
     }
 
-    public void postStart(final String sessionId, final long nodeId, final HashMap<String, String> parameters) {
+    public void postStart(final String sessionId, final long nodeId, final Map<String, String> parameters) {
         final var message = Resync.ResyncStart.newBuilder()
                 .setNodeId(nodeId)
                 .setResyncId(sessionId)
@@ -113,7 +113,7 @@ public class AlarmForwarder {
         this.send(record);
     }
 
-    public void postEnd(final String sessionId, final long nodeId, final HashMap<String, String> parameters, final boolean success) {
+    public void postEnd(final String sessionId, final long nodeId, final Map<String, String> parameters, final boolean success) {
         final var message = Resync.ResyncEnd.newBuilder()
                 .setNodeId(nodeId)
                 .setSuccess(success)
