@@ -69,8 +69,6 @@ import static org.opennms.resync.constants.Events.UEI_RESYNC_STARTED;
 public class TriggerService {
     // TODO: Maintain a global table of locks to track which system is in progress and disallow multiple concurring re-syncs
 
-    public final static String META_DATA_PREFIX = "resync:";
-
     @NonNull
     private final LocationAwareSnmpClient snmpClient;
 
@@ -229,7 +227,8 @@ public class TriggerService {
                                 .setSource(EVENT_SOURCE)
                                 .setUei(UEI_RESYNC_ALARM)
                                 .setNodeid(node.getId())
-                                .setInterface(iface.getIpAddress());
+                                .setInterface(iface.getIpAddress())
+                                .setService(request.kind);
 
                         // Apply columns
                         for (final var key : config.getColumns().keySet()) {
