@@ -144,7 +144,8 @@ jobs:
       - run:
           name: Run integration tests
           command: |
-            mvn -DskipITs=false -DskipTests=false install test integration-test
+            mvn -DskipITs=false -DskipTests=false clean test
+            mvn -DskipITs=false -DskipTests=false clean integration-test
       - run:
           name: Save test results
           command: |
