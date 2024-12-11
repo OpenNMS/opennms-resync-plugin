@@ -49,5 +49,5 @@ public class KindConfig {
 
     @NonNull
     @Builder.Default
-    Map<String, String> parameters = new LinkedHashMap<>();
+    Map<String, Object> parameters = new LinkedHashMap<>();
 }

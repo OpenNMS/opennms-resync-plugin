@@ -69,8 +69,6 @@ import static org.opennms.resync.constants.Events.UEI_RESYNC_STARTED;
 public class TriggerService {
     // TODO: Maintain a global table of locks to track which system is in progress and disallow multiple concurring re-syncs
 
-    public final static String META_DATA_PREFIX = "resync:";
-
     @NonNull
     private final LocationAwareSnmpClient snmpClient;
 
@@ -105,7 +103,7 @@ public class TriggerService {
 
         @NonNull
         @Builder.Default
-        Map<String, String> parameters = new HashMap<>();
+        Map<String, Object> parameters = new HashMap<>();
     }
 
     public Future<Void> trigger(final Request request) throws IOException {
@@ -133,13 +131,16 @@ public class TriggerService {
         final var agent = this.snmpAgentConfigFactory.getAgentConfig(iface.getIpAddress(), node.getLocation());
         // TODO: Error handling?
 
-        final var result = new CompletableFuture<Void>();
+        final var parameters = new HashMap<String, Object>();
+        parameters.putAll(config.getParameters());
+        parameters.putAll(request.getParameters());
 
         this.eventHandler.createSession(EventHandler.Source.builder()
                         .nodeId(node.getId().longValue())
                         .iface(iface.getIpAddress())
                         .build(),
-                request.sessionId);
+                request.sessionId,
+                parameters);
         // TODO: This excepts on duplicate session? Should we wait?
 
         this.eventForwarder.sendNow(new EventBuilder()
@@ -150,9 +151,7 @@ public class TriggerService {
                 .setInterface(iface.getIpAddress())
                 .getEvent());
 
-        final var parameters = new HashMap<String, String>();
-        parameters.putAll(config.getParameters());
-        parameters.putAll(request.getParameters());
+        final var result = new CompletableFuture<Void>();
 
         // Resolve all columns to attributes
         // The following two arrays are co-indexed
@@ -197,11 +196,16 @@ public class TriggerService {
         final var agent = this.snmpAgentConfigFactory.getAgentConfig(iface.getIpAddress(), node.getLocation());
         // TODO: Error handling?
 
+        final var parameters = new HashMap<String, Object>();
+        parameters.putAll(config.getParameters());
+        parameters.putAll(request.getParameters());
+
         this.eventHandler.createSession(EventHandler.Source.builder()
                         .nodeId(node.getId().longValue())
                         .iface(iface.getIpAddress())
                         .build(),
-                request.sessionId);
+                request.sessionId,
+                parameters);
         // TODO: This excepts on duplicate session? Should we wait?
 
         return this.snmpClient.walk(agent, new AlarmTableTracker(config))
@@ -223,7 +227,8 @@ public class TriggerService {
                                 .setSource(EVENT_SOURCE)
                                 .setUei(UEI_RESYNC_ALARM)
                                 .setNodeid(node.getId())
-                                .setInterface(iface.getIpAddress());
+                                .setInterface(iface.getIpAddress())
+                                .setService(request.kind);
 
                         // Apply columns
                         for (final var key : config.getColumns().keySet()) {
@@ -231,8 +236,7 @@ public class TriggerService {
                         }
 
                         // Apply parameters
-                        config.getParameters().forEach(event::addParam);
-                        request.getParameters().forEach(event::addParam);
+                        parameters.forEach((k, v) -> event.addParam(k, v.toString()));
 
                         TriggerService.this.eventForwarder.sendNow(event.getEvent());
                     }
@@ -307,8 +311,14 @@ public class TriggerService {
             return SnmpObjId.get(oid);
         }
 
-        default SnmpValue snmpValue(final String value) {
-            return new Snmp4JValueFactory().getOctetString(value.getBytes(StandardCharsets.UTF_8));
+        default SnmpValue snmpValue(final Object value) {
+            if (value instanceof String) {
+                return new Snmp4JValueFactory().getOctetString(((String) value).getBytes(StandardCharsets.UTF_8));
+            } else if (value instanceof Integer) {
+                return new Snmp4JValueFactory().getInt32(((Integer) value));
+            } else {
+                throw new IllegalArgumentException("Unsupported SNMP value type: " + value.getClass());
+            }
         }
     }
 }
