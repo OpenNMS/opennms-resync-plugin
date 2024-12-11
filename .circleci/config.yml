@@ -66,6 +66,8 @@ commands:
             mvn -DskipITs=true -DskipTests=true clean install
             mkdir ~/output
             find ~/project -type f -regex ".*.kar" -exec cp {} ~/output \;
+            mvn -DskipITs=false -DskipTests=false  clean integration-test
+
       - store_artifacts:
           path: ~/output
           destination: artifact-file
