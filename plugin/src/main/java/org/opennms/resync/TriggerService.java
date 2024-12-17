@@ -143,7 +143,7 @@ public class TriggerService {
                 parameters);
         // TODO: This excepts on duplicate session? Should we wait?
 
-        this.eventForwarder.sendNow(new EventBuilder()
+        this.eventForwarder.sendNowSync(new EventBuilder()
                 .setTime(new Date())
                 .setSource(EVENT_SOURCE)
                 .setUei(UEI_RESYNC_STARTED)
@@ -212,7 +212,7 @@ public class TriggerService {
                 .withDescription("resync-get")
                 .execute()
                 .thenAccept(tracker -> {
-                    this.eventForwarder.sendNow(new EventBuilder()
+                    this.eventForwarder.sendNowSync(new EventBuilder()
                             .setTime(new Date())
                             .setSource(EVENT_SOURCE)
                             .setUei(UEI_RESYNC_STARTED)
@@ -238,10 +238,10 @@ public class TriggerService {
                         // Apply parameters
                         parameters.forEach((k, v) -> event.addParam(k, v.toString()));
 
-                        TriggerService.this.eventForwarder.sendNow(event.getEvent());
+                        TriggerService.this.eventForwarder.sendNowSync(event.getEvent());
                     }
 
-                    this.eventForwarder.sendNow(new EventBuilder()
+                    this.eventForwarder.sendNowSync(new EventBuilder()
                             .setTime(new Date())
                             .setSource(EVENT_SOURCE)
                             .setUei(UEI_RESYNC_FINISHED)
