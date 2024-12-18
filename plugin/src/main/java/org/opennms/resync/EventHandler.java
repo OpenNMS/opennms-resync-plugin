@@ -237,6 +237,13 @@ public class EventHandler implements EventListener {
                         .setValue(param.getValue().getContent()))
                 .forEach(alarEvent::addParameter);
 
+        session.parameters.forEach((key, value) -> {
+            alarEvent.addParameter(Resync.EventParameter.newBuilder()
+                    .setName(key)
+                    .setType("string")
+                    .setValue(value));
+        });
+
         alarm.setLastEvent(alarEvent);
 
         this.alarmForwarder.postAlarm(session.sessionId, alarm.build());
