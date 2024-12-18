@@ -30,13 +30,14 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.Map;
 
 @RequiredArgsConstructor
 public class Configs {
 
     private final static ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    public KindConfig getConfig(final String node, String kind) throws IOException {
+    public Map.Entry<String, KindConfig> getConfig(final String node, String kind) throws IOException {
         final var path = Paths.get(System.getProperty("opennms.home"), "etc", "resync.json");
 
         final Config config;
@@ -58,7 +59,7 @@ public class Configs {
             throw new IllegalArgumentException("No config found for kind: " + kind);
         }
 
-        return kindConfig;
+        return Map.entry(kind, kindConfig);
     }
 
 }
