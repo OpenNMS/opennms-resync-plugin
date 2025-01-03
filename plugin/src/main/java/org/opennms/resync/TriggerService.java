@@ -111,14 +111,14 @@ public class TriggerService {
 
         final var config = this.configs.getConfig(node.getLabel(), request.kind);
 
-        switch (config.getMode()) {
+        switch (config.getValue().getMode()) {
             case SET: return this.set(request, config);
             case GET: return this.get(request, config);
-            default: throw new IllegalStateException("Unsupported mode: " + config.getMode());
+            default: throw new IllegalStateException("Unsupported mode: " + config.getValue().getMode());
         }
     }
 
-    private Future<Void> set(final Request request, final KindConfig config) throws IOException {
+    private Future<Void> set(final Request request, final Map.Entry<String, KindConfig> config) throws IOException {
         log.info("trigger: set: {}", request);
 
         final var node = this.findNode(request.nodeCriteria);
@@ -132,7 +132,7 @@ public class TriggerService {
         // TODO: Error handling?
 
         final var parameters = new HashMap<String, Object>();
-        parameters.putAll(config.getParameters());
+        parameters.putAll(config.getValue().getParameters());
         parameters.putAll(request.getParameters());
 
         this.eventHandler.createSession(EventHandler.Source.builder()
@@ -143,7 +143,7 @@ public class TriggerService {
                 parameters);
         // TODO: This excepts on duplicate session? Should we wait?
 
-        this.eventForwarder.sendNow(new EventBuilder()
+        this.eventForwarder.sendNowSync(new EventBuilder()
                 .setTime(new Date())
                 .setSource(EVENT_SOURCE)
                 .setUei(UEI_RESYNC_STARTED)
@@ -155,10 +155,10 @@ public class TriggerService {
 
         // Resolve all columns to attributes
         // The following two arrays are co-indexed
-        final var oids = new ArrayList<SnmpObjId>(config.getColumns().size());
-        final var vals = new ArrayList<SnmpValue>(config.getColumns().size());
+        final var oids = new ArrayList<SnmpObjId>(config.getValue().getColumns().size());
+        final var vals = new ArrayList<SnmpValue>(config.getValue().getColumns().size());
 
-        for (final var e : config.getColumns().entrySet()) {
+        for (final var e : config.getValue().getColumns().entrySet()) {
             var value = parameters.get(e.getKey());
             if (value == null) {
                 throw new IllegalArgumentException("No value defined for parameter: " + e.getKey());
@@ -183,7 +183,7 @@ public class TriggerService {
         return result;
     }
 
-    private Future<Void> get(final Request request, final KindConfig config) throws IOException {
+    private Future<Void> get(final Request request, final Map.Entry<String, KindConfig> config) throws IOException {
         log.info("trigger: get: {}", request);
 
         final var node = this.findNode(request.nodeCriteria);
@@ -197,7 +197,7 @@ public class TriggerService {
         // TODO: Error handling?
 
         final var parameters = new HashMap<String, Object>();
-        parameters.putAll(config.getParameters());
+        parameters.putAll(config.getValue().getParameters());
         parameters.putAll(request.getParameters());
 
         this.eventHandler.createSession(EventHandler.Source.builder()
@@ -208,11 +208,11 @@ public class TriggerService {
                 parameters);
         // TODO: This excepts on duplicate session? Should we wait?
 
-        return this.snmpClient.walk(agent, new AlarmTableTracker(config))
+        return this.snmpClient.walk(agent, new AlarmTableTracker(config.getValue()))
                 .withDescription("resync-get")
                 .execute()
                 .thenAccept(tracker -> {
-                    this.eventForwarder.sendNow(new EventBuilder()
+                    this.eventForwarder.sendNowSync(new EventBuilder()
                             .setTime(new Date())
                             .setSource(EVENT_SOURCE)
                             .setUei(UEI_RESYNC_STARTED)
@@ -228,20 +228,20 @@ public class TriggerService {
                                 .setUei(UEI_RESYNC_ALARM)
                                 .setNodeid(node.getId())
                                 .setInterface(iface.getIpAddress())
-                                .setService(request.kind);
+                                .setService(config.getKey());
 
                         // Apply columns
-                        for (final var key : config.getColumns().keySet()) {
+                        for (final var key : config.getValue().getColumns().keySet()) {
                             event.addParam(key, result.get(key));
                         }
 
                         // Apply parameters
                         parameters.forEach((k, v) -> event.addParam(k, v.toString()));
 
-                        TriggerService.this.eventForwarder.sendNow(event.getEvent());
+                        TriggerService.this.eventForwarder.sendNowSync(event.getEvent());
                     }
 
-                    this.eventForwarder.sendNow(new EventBuilder()
+                    this.eventForwarder.sendNowSync(new EventBuilder()
                             .setTime(new Date())
                             .setSource(EVENT_SOURCE)
                             .setUei(UEI_RESYNC_FINISHED)
