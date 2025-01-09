@@ -200,18 +200,21 @@ public class TriggerService {
         parameters.putAll(config.getValue().getParameters());
         parameters.putAll(request.getParameters());
 
-        this.eventHandler.createSession(EventHandler.Source.builder()
-                        .nodeId(node.getId().longValue())
-                        .iface(iface.getIpAddress())
-                        .build(),
-                request.sessionId,
-                parameters);
+
         // TODO: This excepts on duplicate session? Should we wait?
 
         return this.snmpClient.walk(agent, new AlarmTableTracker(config.getValue()))
                 .withDescription("resync-get")
                 .execute()
                 .thenAccept(tracker -> {
+                    // TODO: need better to create the session in get scenario
+                    this.eventHandler.createSession(EventHandler.Source.builder()
+                                    .nodeId(node.getId().longValue())
+                                    .iface(iface.getIpAddress())
+                                    .build(),
+                            request.sessionId,
+                            parameters);
+                    // TODO: Is another way to check if we check the first result is received ? and then start session
                     this.eventForwarder.sendNowSync(new EventBuilder()
                             .setTime(new Date())
                             .setSource(EVENT_SOURCE)
