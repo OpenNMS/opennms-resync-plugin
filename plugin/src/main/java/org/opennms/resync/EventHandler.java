@@ -50,6 +50,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -85,7 +86,8 @@ public class EventHandler implements EventListener {
 
     private TimerTask timer;
 
-    private final Map<Source, Session> sessions = new ConcurrentHashMap<>();
+    public final ConcurrentMap<Source, Session> sessions = new ConcurrentHashMap<>();
+
 
     public void start() {
         assert this.timer == null;
@@ -106,17 +108,14 @@ public class EventHandler implements EventListener {
         return "resync-event-handler";
     }
 
-    public synchronized void createSession(final Source source,
-                                           final String sessionId,
-                                           final HashMap<String, Object> parameters) {
-        if (this.sessions.containsKey(source)) {
-            throw new IllegalStateException("session already exists for source: " + source);
-        }
 
-        this.sessions.put(source, Session.builder()
+    public void createSession(final Source source, final String sessionId, final HashMap<String, Object> parameters) {
+        if (this.sessions.putIfAbsent(source, Session.builder()
                 .sessionId(sessionId)
                 .parameters(Maps.transformValues(parameters, Object::toString))
-                .build());
+                .build()) != null) {
+            throw new IllegalStateException("session already exists for source: " + source);
+        }
 
         log.info("resync session: {} - created (id = {}, handler = {})", source, sessionId, System.identityHashCode(this));
     }
