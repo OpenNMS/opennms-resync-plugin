@@ -223,19 +223,21 @@ public class TriggerService {
                 .map(KindConfig::getTimeout)
                 .orElse(this.timeout);
 
-        this.eventHandler.createSession(EventHandler.Source.builder()
-                        .nodeId(node.getId().longValue())
-                        .iface(iface.getIpAddress())
-                        .build(),
-                request.sessionId,
-                timeout,
-                parameters);
-        // TODO: This excepts on duplicate session? Should we wait?
 
+        // TODO: This excepts on duplicate session? Should we wait?
         return this.snmpClient.walk(agent, new AlarmTableTracker(config.getValue()))
                 .withDescription("resync-get")
                 .execute()
                 .thenAccept(tracker -> {
+                    // TODO: This excepts on duplicate session? Should we wait?
+                    this.eventHandler.createSession(EventHandler.Source.builder()
+                                    .nodeId(node.getId().longValue())
+                                    .iface(iface.getIpAddress())
+                                    .build(),
+                            request.sessionId,
+                            timeout,
+                            parameters);
+
                     this.eventForwarder.sendNowSync(new EventBuilder()
                             .setTime(new Date())
                             .setSource(EVENT_SOURCE)
