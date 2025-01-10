@@ -223,8 +223,6 @@ public class TriggerService {
                 .map(KindConfig::getTimeout)
                 .orElse(this.timeout);
 
-
-        // TODO: This excepts on duplicate session? Should we wait?
         return this.snmpClient.walk(agent, new AlarmTableTracker(config.getValue()))
                 .withDescription("resync-get")
                 .execute()
