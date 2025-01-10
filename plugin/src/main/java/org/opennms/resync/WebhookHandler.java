@@ -72,5 +72,8 @@ public interface WebhookHandler {
 
         @Builder.Default
         boolean sync = false;
+
+        long timeout;
+
     }
 }

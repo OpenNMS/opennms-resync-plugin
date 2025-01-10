@@ -72,7 +72,7 @@ public class EventHandler implements EventListener {
             UEI_RESYNC_ALARM
     );
 
-    private static final Duration SESSION_TIMEOUT = Duration.ofSeconds(10);
+
 
     @NonNull
     private final EventSubscriptionService eventSubscriptionService;
@@ -108,6 +108,7 @@ public class EventHandler implements EventListener {
 
     public synchronized void createSession(final Source source,
                                            final String sessionId,
+                                           Long timeout,
                                            final HashMap<String, Object> parameters) {
         if (this.sessions.containsKey(source)) {
             throw new IllegalStateException("session already exists for source: " + source);
@@ -115,6 +116,7 @@ public class EventHandler implements EventListener {
 
         this.sessions.put(source, Session.builder()
                 .sessionId(sessionId)
+                .timeout(timeout)
                 .parameters(Maps.transformValues(parameters, Object::toString))
                 .build());
 
@@ -267,6 +269,10 @@ public class EventHandler implements EventListener {
 
         @NonNull
         private Map<String, String> parameters;
+
+        @NonNull
+        private Long timeout;
+
     }
 
     private TimerTask timer() {
@@ -274,9 +280,12 @@ public class EventHandler implements EventListener {
             @Override
             public void run() {
                 synchronized (EventHandler.this) {
-                    final var timeout = Instant.now().minus(SESSION_TIMEOUT);
+
 
                     for (final var session : EventHandler.this.sessions.entrySet()) {
+                        final Duration SESSION_TIMEOUT = Duration.ofSeconds(session.getValue().getTimeout());
+                        final var timeout = Instant.now().minus(SESSION_TIMEOUT);
+
                         if (session.getValue().lastEvent.isBefore(timeout)) {
                             log.info("resync session {}: timeout - send event", session.getKey());
 

@@ -25,6 +25,7 @@ package org.opennms.resync;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.mapstruct.Mapper;
@@ -55,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
@@ -87,6 +89,11 @@ public class TriggerService {
     @NonNull
     private final Configs configs;
 
+    @Setter
+    private  Long timeout;
+
+
+
     @Value
     @Builder
     public static class Request {
@@ -104,6 +111,9 @@ public class TriggerService {
         @NonNull
         @Builder.Default
         Map<String, Object> parameters = new HashMap<>();
+
+        long timeout;
+
     }
 
     public Future<Void> trigger(final Request request) throws IOException {
@@ -135,11 +145,18 @@ public class TriggerService {
         parameters.putAll(config.getValue().getParameters());
         parameters.putAll(request.getParameters());
 
+        Long timeout = request.getTimeout() != 0
+                ? request.getTimeout()
+                : Optional.of(config.getValue())
+                .map(KindConfig::getTimeout)
+                .orElse(this.timeout);
+
         this.eventHandler.createSession(EventHandler.Source.builder()
                         .nodeId(node.getId().longValue())
                         .iface(iface.getIpAddress())
                         .build(),
                 request.sessionId,
+                timeout,
                 parameters);
         // TODO: This excepts on duplicate session? Should we wait?
 
@@ -200,11 +217,18 @@ public class TriggerService {
         parameters.putAll(config.getValue().getParameters());
         parameters.putAll(request.getParameters());
 
+        Long timeout = request.getTimeout() != 0
+                ? request.getTimeout()
+                : Optional.of(config.getValue())
+                .map(KindConfig::getTimeout)
+                .orElse(this.timeout);
+
         this.eventHandler.createSession(EventHandler.Source.builder()
                         .nodeId(node.getId().longValue())
                         .iface(iface.getIpAddress())
                         .build(),
                 request.sessionId,
+                timeout,
                 parameters);
         // TODO: This excepts on duplicate session? Should we wait?
 

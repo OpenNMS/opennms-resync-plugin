@@ -64,6 +64,10 @@ public class TriggerCommand implements Action {
     @Getter
     private String kind;
 
+    @Argument(name = "timeout")
+    @Getter
+    private String timeout;
+
     @Argument(name = "params", required = true, index = 1)
     @Getter
     private Map<String, Object> parameters;
