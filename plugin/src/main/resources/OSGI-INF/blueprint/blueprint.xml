@@ -5,6 +5,13 @@
                http://www.osgi.org/xmlns/blueprint/v1.0.0 https://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd
 		       http://aries.apache.org/blueprint/xmlns/blueprint-cm/v1.1.0 https://aries.apache.org/schemas/blueprint-cm/blueprint-cm-1.1.0.xsd
            ">
+    <cm:property-placeholder id="resyncConfig" persistent-id="org.opennms.plugins.resync">
+                           update-strategy="reload">
+    <cm:default-properties>
+      <cm:property name="sessionTimeout" value="10000"/>
+    </cm:default-properties>
+  </cm:property-placeholder>
+
     <reference id="configAdmin"
                interface="org.osgi.service.cm.ConfigurationAdmin" />
 
@@ -41,6 +48,7 @@
         <argument ref="eventSubscriptionService"/>
         <argument ref="eventForwarder"/>
         <argument ref="alarmForwarder"/>
+        <property name="sessionTimeout" value="${sessionTimeout}" />
     </bean>
 
     <bean id="trigger" class="org.opennms.resync.TriggerService">

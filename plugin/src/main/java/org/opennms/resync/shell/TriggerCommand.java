@@ -68,6 +68,10 @@ public class TriggerCommand implements Action {
     @Getter
     private Map<String, Object> parameters;
 
+    @Argument(name = "timeout")
+    @Getter
+    private Long timeout;
+
     public final Object execute() throws Exception {
         final var ipInterface = this.ipInterface != null
                 ? InetAddresses.forString(this.ipInterface)

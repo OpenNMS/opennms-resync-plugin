@@ -42,11 +42,11 @@ import org.opennms.netmgt.snmp.TableTracker;
 import org.opennms.netmgt.snmp.proxy.LocationAwareSnmpClient;
 import org.opennms.netmgt.snmp.snmp4j.Snmp4JValueFactory;
 import org.opennms.resync.config.Configs;
-import org.opennms.resync.config.KindConfig;
 
 import java.io.IOException;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Date;
@@ -104,6 +104,8 @@ public class TriggerService {
         @NonNull
         @Builder.Default
         Map<String, Object> parameters = new HashMap<>();
+
+        Duration timeout;
     }
 
     public Future<Void> trigger(final Request request) throws IOException {
@@ -111,14 +113,14 @@ public class TriggerService {
 
         final var config = this.configs.getConfig(node.getLabel(), request.kind);
 
-        switch (config.getValue().getMode()) {
+        switch (config.getMode()) {
             case SET: return this.set(request, config);
             case GET: return this.get(request, config);
-            default: throw new IllegalStateException("Unsupported mode: " + config.getValue().getMode());
+            default: throw new IllegalStateException("Unsupported mode: " + config.getMode());
         }
     }
 
-    private Future<Void> set(final Request request, final Map.Entry<String, KindConfig> config) throws IOException {
+    private Future<Void> set(final Request request, final Configs.Entry config) throws IOException {
         log.info("trigger: set: {}", request);
 
         final var node = this.findNode(request.nodeCriteria);
@@ -132,7 +134,7 @@ public class TriggerService {
         // TODO: Error handling?
 
         final var parameters = new HashMap<String, Object>();
-        parameters.putAll(config.getValue().getParameters());
+        parameters.putAll(config.getParameters());
         parameters.putAll(request.getParameters());
 
         this.eventHandler.createSession(EventHandler.Source.builder()
@@ -140,7 +142,10 @@ public class TriggerService {
                         .iface(iface.getIpAddress())
                         .build(),
                 request.sessionId,
-                parameters);
+                parameters,
+                request.getTimeout() != null
+                        ? request.getTimeout()
+                        : config.getTimeout());
         // TODO: This excepts on duplicate session? Should we wait?
 
         this.eventForwarder.sendNowSync(new EventBuilder()
@@ -155,10 +160,10 @@ public class TriggerService {
 
         // Resolve all columns to attributes
         // The following two arrays are co-indexed
-        final var oids = new ArrayList<SnmpObjId>(config.getValue().getColumns().size());
-        final var vals = new ArrayList<SnmpValue>(config.getValue().getColumns().size());
+        final var oids = new ArrayList<SnmpObjId>(config.getColumns().size());
+        final var vals = new ArrayList<SnmpValue>(config.getColumns().size());
 
-        for (final var e : config.getValue().getColumns().entrySet()) {
+        for (final var e : config.getColumns().entrySet()) {
             var value = parameters.get(e.getKey());
             if (value == null) {
                 throw new IllegalArgumentException("No value defined for parameter: " + e.getKey());
@@ -183,7 +188,7 @@ public class TriggerService {
         return result;
     }
 
-    private Future<Void> get(final Request request, final Map.Entry<String, KindConfig> config) throws IOException {
+    private Future<Void> get(final Request request, final Configs.Entry config) throws IOException {
         log.info("trigger: get: {}", request);
 
         final var node = this.findNode(request.nodeCriteria);
@@ -197,7 +202,7 @@ public class TriggerService {
         // TODO: Error handling?
 
         final var parameters = new HashMap<String, Object>();
-        parameters.putAll(config.getValue().getParameters());
+        parameters.putAll(config.getParameters());
         parameters.putAll(request.getParameters());
 
         return this.snmpClient.walk(agent, new AlarmTableTracker(config.getValue()))
@@ -210,7 +215,10 @@ public class TriggerService {
                                     .iface(iface.getIpAddress())
                                     .build(),
                             request.sessionId,
-                            parameters);
+                            parameters,
+                            request.getTimeout() != null
+                                    ? request.getTimeout()
+                                    : config.getTimeout());
 
                     this.eventForwarder.sendNowSync(new EventBuilder()
                             .setTime(new Date())
@@ -228,10 +236,10 @@ public class TriggerService {
                                 .setUei(UEI_RESYNC_ALARM)
                                 .setNodeid(node.getId())
                                 .setInterface(iface.getIpAddress())
-                                .setService(config.getKey());
+                                .setService(config.getKind());
 
                         // Apply columns
-                        for (final var key : config.getValue().getColumns().keySet()) {
+                        for (final var key : config.getColumns().keySet()) {
                             event.addParam(key, result.get(key));
                         }
 
@@ -270,9 +278,9 @@ public class TriggerService {
     private class AlarmTableTracker extends TableTracker {
         public List<Map<String, String>> results = new ArrayList<>();
 
-        private final KindConfig config;
+        private final Configs.Entry config;
 
-        public AlarmTableTracker(final KindConfig config) {
+        public AlarmTableTracker(final Configs.Entry config) {
             super(config.getColumns().values().toArray(SnmpObjId[]::new));
 
             this.config = config;
@@ -319,6 +327,10 @@ public class TriggerService {
             } else {
                 throw new IllegalArgumentException("Unsupported SNMP value type: " + value.getClass());
             }
+        }
+
+        default Duration millis(final long millis) {
+            return Duration.ofMillis(millis);
         }
     }
 }

@@ -50,4 +50,6 @@ public class KindConfig {
     @NonNull
     @Builder.Default
     Map<String, Object> parameters = new LinkedHashMap<>();
+
+    Long timeout;
 }

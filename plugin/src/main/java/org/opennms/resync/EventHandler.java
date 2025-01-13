@@ -45,6 +45,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -72,8 +73,6 @@ public class EventHandler implements EventListener {
             UEI_RESYNC_ALARM
     );
 
-    private static final Duration SESSION_TIMEOUT = Duration.ofSeconds(10);
-
     @NonNull
     private final EventSubscriptionService eventSubscriptionService;
 
@@ -84,6 +83,8 @@ public class EventHandler implements EventListener {
     private final AlarmForwarder alarmForwarder;
 
     private TimerTask timer;
+
+    private Duration sessionTimeout;
 
     private final Map<Source, Session> sessions = new ConcurrentHashMap<>();
 
@@ -108,7 +109,8 @@ public class EventHandler implements EventListener {
 
     public synchronized void createSession(final Source source,
                                            final String sessionId,
-                                           final HashMap<String, Object> parameters) {
+                                           final HashMap<String, Object> parameters,
+                                           final Duration timeout) {
         if (this.sessions.containsKey(source)) {
             throw new IllegalStateException("session already exists for source: " + source);
         }
@@ -116,6 +118,9 @@ public class EventHandler implements EventListener {
         this.sessions.put(source, Session.builder()
                 .sessionId(sessionId)
                 .parameters(Maps.transformValues(parameters, Object::toString))
+                .timeout(timeout != null
+                        ? timeout
+                        : this.sessionTimeout)
                 .build());
 
         log.info("resync session: {} - created (id = {}, handler = {})", source, sessionId, System.identityHashCode(this));
@@ -249,6 +254,14 @@ public class EventHandler implements EventListener {
         this.alarmForwarder.postAlarm(session.sessionId, alarm.build());
     }
 
+    public void setSessionTimeout(final Duration sessionTimeout) {
+        this.sessionTimeout = Objects.requireNonNull(sessionTimeout);
+    }
+
+    public void setSessionTimeout(final long sessionTimeout) {
+        this.setSessionTimeout(Duration.ofMillis(sessionTimeout));
+    }
+
     @Value
     @Builder
     public static class Source {
@@ -267,6 +280,9 @@ public class EventHandler implements EventListener {
 
         @NonNull
         private Map<String, String> parameters;
+
+        @NonNull
+        private Duration timeout;
     }
 
     private TimerTask timer() {
@@ -274,9 +290,11 @@ public class EventHandler implements EventListener {
             @Override
             public void run() {
                 synchronized (EventHandler.this) {
-                    final var timeout = Instant.now().minus(SESSION_TIMEOUT);
+                    final Instant now = Instant.now();
 
                     for (final var session : EventHandler.this.sessions.entrySet()) {
+                        final var timeout = now.minus(session.getValue().getTimeout());
+
                         if (session.getValue().lastEvent.isBefore(timeout)) {
                             log.info("resync session {}: timeout - send event", session.getKey());
 
