@@ -25,7 +25,6 @@ package org.opennms.resync;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.mapstruct.Mapper;
@@ -43,7 +42,6 @@ import org.opennms.netmgt.snmp.TableTracker;
 import org.opennms.netmgt.snmp.proxy.LocationAwareSnmpClient;
 import org.opennms.netmgt.snmp.snmp4j.Snmp4JValueFactory;
 import org.opennms.resync.config.Configs;
-import org.opennms.resync.config.KindConfig;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -57,7 +55,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
@@ -113,8 +110,12 @@ public class TriggerService {
         @Builder.Default
         Map<String, Object> parameters = new HashMap<>();
 
-        Long sessionTimeout;
+        @Builder.Default
+        Duration sessionTimeout = null;
+    }
 
+    public void setSessionTimeout(Long timeout) {
+        this.sessionTimeout = Duration.ofMillis(timeout);
     }
 
     public Future<Void> trigger(final Request request) throws IOException {
@@ -122,14 +123,24 @@ public class TriggerService {
 
         final var config = this.configs.getConfig(node.getLabel(), request.kind);
 
-        switch (config.getValue().getMode()) {
+        switch (config.getMode()) {
             case SET: return this.set(request, config);
             case GET: return this.get(request, config);
-            default: throw new IllegalStateException("Unsupported mode: " + config.getValue().getMode());
+            default: throw new IllegalStateException("Unsupported mode: " + config.getMode());
         }
     }
 
-    private Future<Void> set(final Request request, final Map.Entry<String, KindConfig> config) throws IOException {
+    private static <T> T coerce(final T... values) {
+        for (final T value : values) {
+            if (value != null)
+            {
+                return value;
+            }
+
+        }
+        throw new NullPointerException();
+    }
+    private Future<Void> set(final Request request, final Configs.Entry config) throws IOException {
         log.info("trigger: set: {}", request);
 
         final var node = this.findNode(request.nodeCriteria);
@@ -143,14 +154,10 @@ public class TriggerService {
         // TODO: Error handling?
 
         final var parameters = new HashMap<String, Object>();
-        parameters.putAll(config.getValue().getParameters());
+        parameters.putAll(config.getParameters());
         parameters.putAll(request.getParameters());
 
-        Duration timeout = Duration.ofMillis(request.getSessionTimeout() != 0
-                ? request.getSessionTimeout()
-                : Optional.of(config.getValue())
-                .map(KindConfig::getTimeout)
-                .orElse(this.sessionTimeout.toMillis()));
+        Duration timeout = coerce(request.getSessionTimeout() , config.getTimeout(), this.sessionTimeout);
 
         this.eventHandler.createSession(EventHandler.Source.builder()
                         .nodeId(node.getId().longValue())
@@ -173,10 +180,10 @@ public class TriggerService {
 
         // Resolve all columns to attributes
         // The following two arrays are co-indexed
-        final var oids = new ArrayList<SnmpObjId>(config.getValue().getColumns().size());
-        final var vals = new ArrayList<SnmpValue>(config.getValue().getColumns().size());
+        final var oids = new ArrayList<SnmpObjId>(config.getColumns().size());
+        final var vals = new ArrayList<SnmpValue>(config.getColumns().size());
 
-        for (final var e : config.getValue().getColumns().entrySet()) {
+        for (final var e : config.getColumns().entrySet()) {
             var value = parameters.get(e.getKey());
             if (value == null) {
                 throw new IllegalArgumentException("No value defined for parameter: " + e.getKey());
@@ -201,7 +208,7 @@ public class TriggerService {
         return result;
     }
 
-    private Future<Void> get(final Request request, final Map.Entry<String, KindConfig> config) throws IOException {
+    private Future<Void> get(final Request request, final Configs.Entry config) throws IOException {
         log.info("trigger: get: {}", request);
 
         final var node = this.findNode(request.nodeCriteria);
@@ -215,17 +222,12 @@ public class TriggerService {
         // TODO: Error handling?
 
         final var parameters = new HashMap<String, Object>();
-        parameters.putAll(config.getValue().getParameters());
+        parameters.putAll(config.getParameters());
         parameters.putAll(request.getParameters());
 
-        Duration timeout = Duration.ofMillis(
-                !Objects.isNull(request.getSessionTimeout())
-                ? request.getSessionTimeout()
-                : Optional.of(config.getValue())
-                .map(KindConfig::getTimeout)
-                .orElse(this.sessionTimeout.toMillis()));
+        Duration timeout = coerce(request.getSessionTimeout() , config.getTimeout(), this.sessionTimeout);
 
-        return this.snmpClient.walk(agent, new AlarmTableTracker(config.getValue()))
+        return this.snmpClient.walk(agent, new AlarmTableTracker(config))
                 .withDescription("resync-get")
                 .execute()
                 .thenAccept(tracker -> {
@@ -254,10 +256,10 @@ public class TriggerService {
                                 .setUei(UEI_RESYNC_ALARM)
                                 .setNodeid(node.getId())
                                 .setInterface(iface.getIpAddress())
-                                .setService(config.getKey());
+                                .setService(config.getKind());
 
                         // Apply columns
-                        for (final var key : config.getValue().getColumns().keySet()) {
+                        for (final var key : config.getColumns().keySet()) {
                             event.addParam(key, result.get(key));
                         }
 
@@ -296,9 +298,9 @@ public class TriggerService {
     private class AlarmTableTracker extends TableTracker {
         public List<Map<String, String>> results = new ArrayList<>();
 
-        private final KindConfig config;
+        private final Configs.Entry config;
 
-        public AlarmTableTracker(final KindConfig config) {
+        public AlarmTableTracker(final Configs.Entry config) {
             super(config.getColumns().values().toArray(SnmpObjId[]::new));
 
             this.config = config;
@@ -346,9 +348,9 @@ public class TriggerService {
                 throw new IllegalArgumentException("Unsupported SNMP value type: " + value.getClass());
             }
         }
-    }
 
-    public void setSessionTimeout(Long timeout) {
-        this.sessionTimeout = Duration.ofMillis(timeout);
+        default Duration millis(final long millis) {
+            return Duration.ofMillis(millis);
+        }
     }
 }
