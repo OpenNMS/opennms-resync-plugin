@@ -72,8 +72,6 @@ public class EventHandler implements EventListener {
             UEI_RESYNC_ALARM
     );
 
-
-
     @NonNull
     private final EventSubscriptionService eventSubscriptionService;
 
@@ -108,7 +106,7 @@ public class EventHandler implements EventListener {
 
     public synchronized void createSession(final Source source,
                                            final String sessionId,
-                                           Long timeout,
+                                           Duration timeout,
                                            final HashMap<String, Object> parameters) {
         if (this.sessions.containsKey(source)) {
             throw new IllegalStateException("session already exists for source: " + source);
@@ -271,7 +269,7 @@ public class EventHandler implements EventListener {
         private Map<String, String> parameters;
 
         @NonNull
-        private Long timeout;
+        private Duration timeout;
 
     }
 
@@ -280,12 +278,10 @@ public class EventHandler implements EventListener {
             @Override
             public void run() {
                 synchronized (EventHandler.this) {
-
+                    final var now = Instant.now();
 
                     for (final var session : EventHandler.this.sessions.entrySet()) {
-                        final Duration SESSION_TIMEOUT = Duration.ofSeconds(session.getValue().getTimeout());
-                        final var timeout = Instant.now().minus(SESSION_TIMEOUT);
-
+                        final var timeout = now.minus(session.getValue().getTimeout());
                         if (session.getValue().lastEvent.isBefore(timeout)) {
                             log.info("resync session {}: timeout - send event", session.getKey());
 

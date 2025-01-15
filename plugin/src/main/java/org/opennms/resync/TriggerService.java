@@ -48,6 +48,7 @@ import org.opennms.resync.config.KindConfig;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Date;
@@ -89,8 +90,8 @@ public class TriggerService {
     @NonNull
     private final Configs configs;
 
-    @Setter
-    private  Long timeout;
+
+    private Duration sessionTimeout;
 
 
 
@@ -112,7 +113,7 @@ public class TriggerService {
         @Builder.Default
         Map<String, Object> parameters = new HashMap<>();
 
-        long timeout;
+        Long sessionTimeout;
 
     }
 
@@ -145,11 +146,11 @@ public class TriggerService {
         parameters.putAll(config.getValue().getParameters());
         parameters.putAll(request.getParameters());
 
-        Long timeout = request.getTimeout() != 0
-                ? request.getTimeout()
+        Duration timeout = Duration.ofMillis(request.getSessionTimeout() != 0
+                ? request.getSessionTimeout()
                 : Optional.of(config.getValue())
                 .map(KindConfig::getTimeout)
-                .orElse(this.timeout);
+                .orElse(this.sessionTimeout.toMillis()));
 
         this.eventHandler.createSession(EventHandler.Source.builder()
                         .nodeId(node.getId().longValue())
@@ -217,11 +218,12 @@ public class TriggerService {
         parameters.putAll(config.getValue().getParameters());
         parameters.putAll(request.getParameters());
 
-        Long timeout = request.getTimeout() != 0
-                ? request.getTimeout()
+        Duration timeout = Duration.ofMillis(
+                !Objects.isNull(request.getSessionTimeout())
+                ? request.getSessionTimeout()
                 : Optional.of(config.getValue())
                 .map(KindConfig::getTimeout)
-                .orElse(this.timeout);
+                .orElse(this.sessionTimeout.toMillis()));
 
         return this.snmpClient.walk(agent, new AlarmTableTracker(config.getValue()))
                 .withDescription("resync-get")
@@ -344,5 +346,9 @@ public class TriggerService {
                 throw new IllegalArgumentException("Unsupported SNMP value type: " + value.getClass());
             }
         }
+    }
+
+    public void setSessionTimeout(Long timeout) {
+        this.sessionTimeout = Duration.ofMillis(timeout);
     }
 }
