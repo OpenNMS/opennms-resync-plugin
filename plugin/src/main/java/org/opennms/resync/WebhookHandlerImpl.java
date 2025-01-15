@@ -65,6 +65,7 @@ public class WebhookHandlerImpl implements WebhookHandler {
 
         @Mapping(target = "nodeCriteria", source = "node")
         @Mapping(target = "sessionId", source = "resyncId")
+        @Mapping(target = "sessionTimeout", source = "timeout")
         TriggerService.Request toRequest(final WebhookHandler.TriggerRequest request);
     }
 }

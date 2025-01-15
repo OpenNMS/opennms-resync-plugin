@@ -24,12 +24,17 @@ package org.opennms.resync.config;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Builder;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.Value;
+import org.opennms.netmgt.snmp.SnmpObjId;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.HashMap;
+import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RequiredArgsConstructor
@@ -37,7 +42,7 @@ public class Configs {
 
     private final static ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    public Map.Entry<String, KindConfig> getConfig(final String node, String kind) throws IOException {
+    public Entry getConfig(final String node, String kind) throws IOException {
         final var path = Paths.get(System.getProperty("opennms.home"), "etc", "resync.json");
 
         final Config config;
@@ -59,7 +64,33 @@ public class Configs {
             throw new IllegalArgumentException("No config found for kind: " + kind);
         }
 
-        return Map.entry(kind, kindConfig);
+        return Entry.builder()
+                .kind(kind)
+                .mode(kindConfig.getMode())
+                .columns(kindConfig.getColumns())
+                .parameters(kindConfig.getParameters())
+                .timeout(kindConfig.getTimeout() != null
+                        ? Duration.ofMillis(kindConfig.getTimeout())
+                        : null)
+                .build();
     }
 
+    @Value
+    @Builder
+    public static class Entry {
+        String kind;
+
+        @NonNull
+        KindConfig.Mode mode;
+
+        @NonNull
+        @Builder.Default
+        Map<String, SnmpObjId> columns = new LinkedHashMap<>();
+
+        @NonNull
+        @Builder.Default
+        Map<String, Object> parameters = new LinkedHashMap<>();
+
+        Duration timeout;
+    }
 }

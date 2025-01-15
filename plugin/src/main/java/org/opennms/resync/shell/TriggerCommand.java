@@ -64,6 +64,10 @@ public class TriggerCommand implements Action {
     @Getter
     private String kind;
 
+    @Argument(name = "timeout")
+    @Getter
+    private Long timeout;
+
     @Argument(name = "params", required = true, index = 1)
     @Getter
     private Map<String, Object> parameters;
@@ -99,6 +103,7 @@ public class TriggerCommand implements Action {
 
         @Mapping(target = "nodeCriteria", source = "node")
         @Mapping(target = "sessionId", source = "resyncId")
+        @Mapping(target = "sessionTimeout", source = "timeout")
         TriggerService.Request toRequest(final TriggerCommand command);
     }
 }
