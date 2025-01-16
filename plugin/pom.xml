@@ -62,7 +62,7 @@
                         <!-- Nothing to export -->
                         <Export-Package></Export-Package>
                         <Import-Package>
-                          org.opennms.*;version="[0, 9999)",
+                          org.opennms.*;version="[0, 33.0.10)",
                           *
                         </Import-Package>
                     </instructions>
