@@ -132,7 +132,7 @@ public class TriggerService {
         // TODO: Error handling?
 
         final var parameters = new HashMap<String, Object>();
-        parameters.putAll(config.getValue().getParameters());
+        parameters.putAll(config.getParameters());
         parameters.putAll(request.getParameters());
 
         this.eventHandler.createSession(EventHandler.Source.builder()
@@ -197,8 +197,16 @@ public class TriggerService {
         // TODO: Error handling?
 
         final var parameters = new HashMap<String, Object>();
-        parameters.putAll(config.getValue().getParameters());
+        parameters.putAll(config.getParameters());
         parameters.putAll(request.getParameters());
+
+        this.eventHandler.createSession(EventHandler.Source.builder()
+                        .nodeId(node.getId().longValue())
+                        .iface(iface.getIpAddress())
+                        .build(),
+                request.sessionId,
+                parameters);
+        // TODO: This excepts on duplicate session? Should we wait?
 
         return this.snmpClient.walk(agent, new AlarmTableTracker(config.getValue()))
                 .withDescription("resync-get")
@@ -228,7 +236,7 @@ public class TriggerService {
                                 .setUei(UEI_RESYNC_ALARM)
                                 .setNodeid(node.getId())
                                 .setInterface(iface.getIpAddress())
-                                .setService(config.getKey());
+                                .setService(request.kind);
 
                         // Apply columns
                         for (final var key : config.getValue().getColumns().keySet()) {

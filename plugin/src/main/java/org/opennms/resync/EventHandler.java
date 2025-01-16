@@ -228,7 +228,7 @@ public class EventHandler implements EventListener {
         applyNotNull(event.getCreationTime(), alarEvent::setCreateTime, Date::getTime);
         applyNotNull(event.getDescr(), alarEvent::setDescription);
         applyNotNull(event.getLogmsg().getContent(), alarEvent::setLogMessage);
-        applyNotNull(event.getSeverity(), alarEvent::setSeverity, s -> Resync.Severity.valueOf(s.toUpperCase()));
+        applyNotNull(event.getService(), alarEvent::setSeverity, s -> Resync.Severity.valueOf(s.toUpperCase()));
 
         event.getParmCollection().stream()
                 .map(param -> Resync.EventParameter.newBuilder()
@@ -236,15 +236,6 @@ public class EventHandler implements EventListener {
                         .setType(param.getValue().getType())
                         .setValue(param.getValue().getContent()))
                 .forEach(alarEvent::addParameter);
-
-        session.parameters.forEach((key, value) -> {
-            alarEvent.addParameter(Resync.EventParameter.newBuilder()
-                    .setName(key)
-                    .setType("string")
-                    .setValue(value));
-        });
-
-        alarm.setLastEvent(alarEvent);
 
         this.alarmForwarder.postAlarm(session.sessionId, alarm.build());
     }
