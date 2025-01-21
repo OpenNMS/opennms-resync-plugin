@@ -165,6 +165,7 @@ public class TriggerService {
                         .build(),
                 request.sessionId,
                 timeout,
+                node.getLabel(),
                 parameters);
         // TODO: This excepts on duplicate session? Should we wait?
 
@@ -238,6 +239,7 @@ public class TriggerService {
                                     .build(),
                             request.sessionId,
                             timeout,
+                            node.getLabel(),
                             parameters);
 
                     this.eventForwarder.sendNowSync(new EventBuilder()
