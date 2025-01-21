@@ -194,7 +194,6 @@ public class EventHandler implements EventListener {
 
         final var session = this.sessions.get(source);
         session.lastEvent = Instant.now();
-        final String nodeLabel = session.nodeLabel;
         log.info("resync session {}: alarm - {} (id = {}, handler = {})", source, event, session.sessionId, System.identityHashCode(this));
 
         final var alarm = Resync.Alarm.newBuilder();
@@ -203,7 +202,7 @@ public class EventHandler implements EventListener {
 
         alarm.setNodeCriteria(Resync.NodeCriteria.newBuilder()
                         .setId(event.getNodeid())
-                        .setNodeLabel(nodeLabel)
+                        .setNodeLabel(session.nodeLabel)
                 // TODO: Lookup node to provide more node info
         );
 
@@ -273,6 +272,7 @@ public class EventHandler implements EventListener {
 
         @NonNull
         private Duration timeout;
+
         @NonNull
         private String nodeLabel;
 
