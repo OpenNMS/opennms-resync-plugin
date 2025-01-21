@@ -221,30 +221,35 @@ public class EventHandler implements EventListener {
                 .map(IValue::getContent)
                 .ifPresent(alarm::setReductionKey);
 
-        final var alarEvent = Resync.Event.newBuilder();
-        applyNotNull(event.getUei(), alarEvent::setUei);
-        applyNotNull(event.getTime(), alarEvent::setTime, Date::getTime);
-        applyNotNull(event.getSource(), alarEvent::setSource);
-        applyNotNull(event.getCreationTime(), alarEvent::setCreateTime, Date::getTime);
-        applyNotNull(event.getDescr(), alarEvent::setDescription);
-        applyNotNull(event.getLogmsg().getContent(), alarEvent::setLogMessage);
-        applyNotNull(event.getSeverity(), alarEvent::setSeverity, s -> Resync.Severity.valueOf(s.toUpperCase()));
+        final var alarmEvent = Resync.Event.newBuilder();
+        applyNotNull(event.getUei(), alarmEvent::setUei);
+        applyNotNull(event.getTime(), alarmEvent::setTime, Date::getTime);
+        applyNotNull(event.getSource(), alarmEvent::setSource);
+        applyNotNull(event.getCreationTime(), alarmEvent::setCreateTime, Date::getTime);
+        applyNotNull(event.getDescr(), alarmEvent::setDescription);
+        applyNotNull(event.getLogmsg().getContent(), alarmEvent::setLogMessage);
+        applyNotNull(event.getSeverity(), alarmEvent::setSeverity, s -> Resync.Severity.valueOf(s.toUpperCase()));
 
         event.getParmCollection().stream()
-                .map(param -> Resync.EventParameter.newBuilder()
-                        .setName(param.getParmName())
-                        .setType(param.getValue().getType())
-                        .setValue(param.getValue().getContent()))
-                .forEach(alarEvent::addParameter);
+                .map(param -> {
+                    final var builder = Resync.EventParameter.newBuilder();
+                    applyNotNull(param.getParmName(), builder::setName);
+                    applyNotNull(param.getValue().getType(), builder::setType);
+                    applyNotNull(param.getValue().getContent(), builder::setValue);
+                    return builder.build();
+                })
+                .forEach(alarmEvent::addParameter);
 
         session.parameters.forEach((key, value) -> {
-            alarEvent.addParameter(Resync.EventParameter.newBuilder()
+            final var builder = Resync.EventParameter.newBuilder()
                     .setName(key)
-                    .setType("string")
-                    .setValue(value));
+                    .setType("string");
+            applyNotNull(value, builder::setValue);
+
+            alarmEvent.addParameter(builder);
         });
 
-        alarm.setLastEvent(alarEvent);
+        alarm.setLastEvent(alarmEvent);
 
         this.alarmForwarder.postAlarm(session.sessionId, alarm.build());
     }
