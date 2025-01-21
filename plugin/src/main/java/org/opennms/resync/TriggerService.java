@@ -156,10 +156,7 @@ public class TriggerService {
         final var parameters = new HashMap<String, Object>();
         parameters.putAll(config.getParameters());
         parameters.putAll(request.getParameters());
-        String nodeLabel = node.getLabel();
-        if (nodeLabel != null && !nodeLabel.isEmpty()) {
-            parameters.put("nodeLabel", nodeLabel);
-        }
+
         Duration timeout = coerce(request.getSessionTimeout() , config.getTimeout(), this.sessionTimeout);
 
         this.eventHandler.createSession(EventHandler.Source.builder()
@@ -168,6 +165,7 @@ public class TriggerService {
                         .build(),
                 request.sessionId,
                 timeout,
+                node.getLabel(),
                 parameters);
         // TODO: This excepts on duplicate session? Should we wait?
 
@@ -227,10 +225,6 @@ public class TriggerService {
         final var parameters = new HashMap<String, Object>();
         parameters.putAll(config.getParameters());
         parameters.putAll(request.getParameters());
-        String nodeLabel = node.getLabel();
-        if (nodeLabel != null && !nodeLabel.isEmpty()) {
-            parameters.put("nodeLabel", nodeLabel);
-        }
 
         Duration timeout = coerce(request.getSessionTimeout() , config.getTimeout(), this.sessionTimeout);
 
@@ -245,6 +239,7 @@ public class TriggerService {
                                     .build(),
                             request.sessionId,
                             timeout,
+                            node.getLabel(),
                             parameters);
 
                     this.eventForwarder.sendNowSync(new EventBuilder()

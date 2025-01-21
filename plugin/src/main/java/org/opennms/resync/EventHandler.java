@@ -107,6 +107,7 @@ public class EventHandler implements EventListener {
     public synchronized void createSession(final Source source,
                                            final String sessionId,
                                            final Duration timeout,
+                                           final String nodeLabel,
                                            final HashMap<String, Object> parameters) {
         if (this.sessions.containsKey(source)) {
             throw new IllegalStateException("session already exists for source: " + source);
@@ -115,6 +116,7 @@ public class EventHandler implements EventListener {
         this.sessions.put(source, Session.builder()
                 .sessionId(sessionId)
                 .timeout(timeout)
+                .nodeLabel(nodeLabel)
                 .parameters(Maps.transformValues(parameters, Object::toString))
                 .build());
 
@@ -192,14 +194,13 @@ public class EventHandler implements EventListener {
 
         final var session = this.sessions.get(source);
         session.lastEvent = Instant.now();
-
+        final String nodeLabel = session.nodeLabel;
         log.info("resync session {}: alarm - {} (id = {}, handler = {})", source, event, session.sessionId, System.identityHashCode(this));
 
         final var alarm = Resync.Alarm.newBuilder();
         alarm.setUei(event.getUei());
         alarm.setCount(1);
 
-        var nodeLabel = session.getParameters().get("nodeLabel");
         alarm.setNodeCriteria(Resync.NodeCriteria.newBuilder()
                         .setId(event.getNodeid())
                         .setNodeLabel(nodeLabel)
@@ -272,6 +273,8 @@ public class EventHandler implements EventListener {
 
         @NonNull
         private Duration timeout;
+        @NonNull
+        private String nodeLabel;
 
     }
 
