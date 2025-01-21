@@ -194,6 +194,7 @@ public class EventHandler implements EventListener {
 
         final var session = this.sessions.get(source);
         session.lastEvent = Instant.now();
+
         log.info("resync session {}: alarm - {} (id = {}, handler = {})", source, event, session.sessionId, System.identityHashCode(this));
 
         final var alarm = Resync.Alarm.newBuilder();
