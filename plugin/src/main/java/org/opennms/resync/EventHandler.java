@@ -199,8 +199,10 @@ public class EventHandler implements EventListener {
         alarm.setUei(event.getUei());
         alarm.setCount(1);
 
+        var nodeLabel = session.getParameters().get("nodeLabel");
         alarm.setNodeCriteria(Resync.NodeCriteria.newBuilder()
                         .setId(event.getNodeid())
+                        .setNodeLabel(nodeLabel)
                 // TODO: Lookup node to provide more node info
         );
 
