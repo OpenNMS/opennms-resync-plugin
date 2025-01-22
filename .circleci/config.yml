@@ -38,6 +38,9 @@ commands:
             name: git clone
             command: |
               git clone  "https://github.com/OpenNMS/opennms.git" ~/opennms
+              cd ~/opennms
+              git checkout opennms-33.0.10-1
+              cd -
               #if [ -n "${CIRCLE_TAG}" ]; then
               #  git checkout --force "${CIRCLE_TAG}"
               #  git reset --hard "${CIRCLE_SHA1}"
