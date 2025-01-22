@@ -196,7 +196,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>31.0.1-jre</version> <!-- Use the latest version -->
+            <version>${google.guava.version}</version>
         </dependency>
         <dependency>
             <groupId>com.google.protobuf</groupId>
