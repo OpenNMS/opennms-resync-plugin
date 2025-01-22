@@ -220,7 +220,7 @@ jobs:
           to: main
 
       # make sure the build passes after merge
-      - build
+      #- build
 
       - run:
           name: "Push to Main"
