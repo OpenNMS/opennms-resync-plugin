@@ -63,7 +63,7 @@
         <google.guava.version>31.1-jre</google.guava.version>
     </properties>
 
-    <version>1.0.3</version>
+    <version>1.0.4-SNAPSHOT</version>
 
     <dependencyManagement>
         <dependencies>
