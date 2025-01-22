@@ -43,6 +43,8 @@ public class KindConfig {
     @NonNull
     Mode mode;
 
+    Long timeout;
+
     @NonNull
     @Builder.Default
     Map<String, SnmpObjId> columns = new LinkedHashMap<>();

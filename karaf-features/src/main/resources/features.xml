@@ -11,7 +11,7 @@
         <feature dependency="true">opennms-snmp</feature>
         <feature dependency="true">opennms-config-api</feature>
         <feature dependency="true">opennms-config-impl</feature>
-
+        <bundle dependency="true">mvn:org.opennms.core/org.opennms.core.lib/${opennms.version}</bundle>
         <bundle dependency="true">mvn:org.apache.commons/commons-jexl3/${jexl.version}</bundle>
 
         <bundle dependency="true">mvn:io.dropwizard.metrics/metrics-core/${metrics.version}</bundle>

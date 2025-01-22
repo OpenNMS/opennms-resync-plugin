@@ -72,8 +72,6 @@ public class EventHandler implements EventListener {
             UEI_RESYNC_ALARM
     );
 
-    private static final Duration SESSION_TIMEOUT = Duration.ofSeconds(10);
-
     @NonNull
     private final EventSubscriptionService eventSubscriptionService;
 
@@ -108,6 +106,8 @@ public class EventHandler implements EventListener {
 
     public synchronized void createSession(final Source source,
                                            final String sessionId,
+                                           final Duration timeout,
+                                           final String nodeLabel,
                                            final HashMap<String, Object> parameters) {
         if (this.sessions.containsKey(source)) {
             throw new IllegalStateException("session already exists for source: " + source);
@@ -115,6 +115,8 @@ public class EventHandler implements EventListener {
 
         this.sessions.put(source, Session.builder()
                 .sessionId(sessionId)
+                .timeout(timeout)
+                .nodeLabel(nodeLabel)
                 .parameters(Maps.transformValues(parameters, Object::toString))
                 .build());
 
@@ -201,6 +203,7 @@ public class EventHandler implements EventListener {
 
         alarm.setNodeCriteria(Resync.NodeCriteria.newBuilder()
                         .setId(event.getNodeid())
+                        .setNodeLabel(session.nodeLabel)
                 // TODO: Lookup node to provide more node info
         );
 
@@ -221,21 +224,35 @@ public class EventHandler implements EventListener {
                 .map(IValue::getContent)
                 .ifPresent(alarm::setReductionKey);
 
-        final var alarEvent = Resync.Event.newBuilder();
-        applyNotNull(event.getUei(), alarEvent::setUei);
-        applyNotNull(event.getTime(), alarEvent::setTime, Date::getTime);
-        applyNotNull(event.getSource(), alarEvent::setSource);
-        applyNotNull(event.getCreationTime(), alarEvent::setCreateTime, Date::getTime);
-        applyNotNull(event.getDescr(), alarEvent::setDescription);
-        applyNotNull(event.getLogmsg().getContent(), alarEvent::setLogMessage);
-        applyNotNull(event.getService(), alarEvent::setSeverity, s -> Resync.Severity.valueOf(s.toUpperCase()));
+        final var alarmEvent = Resync.Event.newBuilder();
+        applyNotNull(event.getUei(), alarmEvent::setUei);
+        applyNotNull(event.getTime(), alarmEvent::setTime, Date::getTime);
+        applyNotNull(event.getSource(), alarmEvent::setSource);
+        applyNotNull(event.getCreationTime(), alarmEvent::setCreateTime, Date::getTime);
+        applyNotNull(event.getDescr(), alarmEvent::setDescription);
+        applyNotNull(event.getLogmsg().getContent(), alarmEvent::setLogMessage);
+        applyNotNull(event.getSeverity(), alarmEvent::setSeverity, s -> Resync.Severity.valueOf(s.toUpperCase()));
 
         event.getParmCollection().stream()
-                .map(param -> Resync.EventParameter.newBuilder()
-                        .setName(param.getParmName())
-                        .setType(param.getValue().getType())
-                        .setValue(param.getValue().getContent()))
-                .forEach(alarEvent::addParameter);
+                .map(param -> {
+                    final var builder = Resync.EventParameter.newBuilder();
+                    applyNotNull(param.getParmName(), builder::setName);
+                    applyNotNull(param.getValue().getType(), builder::setType);
+                    applyNotNull(param.getValue().getContent(), builder::setValue);
+                    return builder.build();
+                })
+                .forEach(alarmEvent::addParameter);
+
+        session.parameters.forEach((key, value) -> {
+            final var builder = Resync.EventParameter.newBuilder()
+                    .setName(key)
+                    .setType("string");
+            applyNotNull(value, builder::setValue);
+
+            alarmEvent.addParameter(builder);
+        });
+
+        alarm.setLastEvent(alarmEvent);
 
         this.alarmForwarder.postAlarm(session.sessionId, alarm.build());
     }
@@ -258,6 +275,13 @@ public class EventHandler implements EventListener {
 
         @NonNull
         private Map<String, String> parameters;
+
+        @NonNull
+        private Duration timeout;
+
+        @NonNull
+        private String nodeLabel;
+
     }
 
     private TimerTask timer() {
@@ -265,9 +289,10 @@ public class EventHandler implements EventListener {
             @Override
             public void run() {
                 synchronized (EventHandler.this) {
-                    final var timeout = Instant.now().minus(SESSION_TIMEOUT);
+                    final var now = Instant.now();
 
                     for (final var session : EventHandler.this.sessions.entrySet()) {
+                        final var timeout = now.minus(session.getValue().getTimeout());
                         if (session.getValue().lastEvent.isBefore(timeout)) {
                             log.info("resync session {}: timeout - send event", session.getKey());
 

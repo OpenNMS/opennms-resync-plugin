@@ -31,6 +31,22 @@ commands:
               else
                 git checkout --force -B "${CIRCLE_BRANCH}" "${CIRCLE_SHA1}"
               fi
+  clone-opennms:
+      description: "Clone Opennms"
+      steps:
+        - run:
+            name: git clone
+            command: |
+              git clone  "https://github.com/OpenNMS/opennms.git" ~/opennms
+              cd ~/opennms
+              git checkout opennms-33.0.10-1
+              cd -
+              #if [ -n "${CIRCLE_TAG}" ]; then
+              #  git checkout --force "${CIRCLE_TAG}"
+              #  git reset --hard "${CIRCLE_SHA1}"
+              #else
+              #  git checkout --force -B "${CIRCLE_BRANCH}" "${CIRCLE_SHA1}"
+              #fi
   build:
     description: "Build Resync Plugin"
     steps:
@@ -40,8 +56,16 @@ commands:
             # fallback to using the latest cache if no exact match is found
             - v1-dependencies-
       - run:
-          name: Compile source without tests
+          name: Compile OpenNMS, ReSync without tests
           command: |
+            sudo apt update && sudo apt install -y npm
+            cd ~/opennms
+            #ulimit -n 1048576
+            export MAVEN_OPTS="-Xmx8g -XX:ReservedCodeCacheSize=1g -XX:+TieredCompilation"
+            ./maven/bin/mvn -DskipITs=true -DskipTests=true -Dbuild.skip.tarball=true  install
+            #mvn -DskipTests=true -Dbuild.skip.tarball=true -DskipITs=true  -pl :org.opennms.features.collection,:org.opennms.core.snmp.api,:org.opennms.core.ipc.rpc.utils,:org.opennms.core.ipc.rpc.xml,:org.opennms.core,:org.opennms.core.api,:org.opennms.features.collection.api,:org.opennms.features.kafka.producer,:org.opennms.container -am install
+            cd -
+            echo "Building RESYNC" 
             mvn -DskipITs=true -DskipTests=true clean install
             mkdir ~/output
             find ~/project -type f -regex ".*.kar" -exec cp {} ~/output \;
@@ -89,8 +113,10 @@ workflows:
 jobs:
   build:
     executor: build-executor
+    resource_class: xlarge
     steps:
       - shallow-clone
+      - clone-opennms
       - run:
           name: Check releasability
           command: |
@@ -121,7 +147,7 @@ jobs:
       - run:
           name: Run integration tests
           command: |
-            mvn -DskipITs=false -DskipTests=false clean install test integration-test
+            mvn -DskipITs=false -DskipTests=false install test integration-test
       - run:
           name: Save test results
           command: |

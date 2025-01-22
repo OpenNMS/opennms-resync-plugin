@@ -52,17 +52,18 @@
         <okhttp.version>3.10.0</okhttp.version>
         <okhttp.bundle.version>3.10.0_2</okhttp.bundle.version>
         <okio.bundle.version>1.14.0_1</okio.bundle.version>
-        <opennms.api.version>1.6.1-SNAPSHOT</opennms.api.version>
-        <opennms.version>34.0.0-SNAPSHOT</opennms.version>
+        <opennms.api.version>1.6.1</opennms.api.version>
+        <opennms.version>33.0.10</opennms.version>
         <osgi.version>7.0.0</osgi.version>
         <osgi.compendium.version>5.0.0</osgi.compendium.version>
         <osgi.enterprise.version>5.0.0</osgi.enterprise.version>
         <slf4j-api.version>1.7.30</slf4j-api.version>
         <pkts.version>3.0.10</pkts.version>
         <protobuf.version>3.12.0</protobuf.version>
+        <google.guava.version>31.1-jre</google.guava.version>
     </properties>
 
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.0.4-SNAPSHOT</version>
 
     <dependencyManagement>
         <dependencies>

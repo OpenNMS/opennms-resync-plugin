@@ -42,11 +42,11 @@ import org.opennms.netmgt.snmp.TableTracker;
 import org.opennms.netmgt.snmp.proxy.LocationAwareSnmpClient;
 import org.opennms.netmgt.snmp.snmp4j.Snmp4JValueFactory;
 import org.opennms.resync.config.Configs;
-import org.opennms.resync.config.KindConfig;
 
 import java.io.IOException;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Date;
@@ -87,6 +87,11 @@ public class TriggerService {
     @NonNull
     private final Configs configs;
 
+
+    private Duration sessionTimeout;
+
+
+
     @Value
     @Builder
     public static class Request {
@@ -104,6 +109,13 @@ public class TriggerService {
         @NonNull
         @Builder.Default
         Map<String, Object> parameters = new HashMap<>();
+
+        @Builder.Default
+        Duration sessionTimeout = null;
+    }
+
+    public void setSessionTimeout(Long timeout) {
+        this.sessionTimeout = Duration.ofMillis(timeout);
     }
 
     public Future<Void> trigger(final Request request) throws IOException {
@@ -118,7 +130,17 @@ public class TriggerService {
         }
     }
 
-    private Future<Void> set(final Request request, final KindConfig config) throws IOException {
+    private static <T> T coerce(final T... values) {
+        for (final T value : values) {
+            if (value != null)
+            {
+                return value;
+            }
+
+        }
+        throw new NullPointerException();
+    }
+    private Future<Void> set(final Request request, final Configs.Entry config) throws IOException {
         log.info("trigger: set: {}", request);
 
         final var node = this.findNode(request.nodeCriteria);
@@ -135,15 +157,19 @@ public class TriggerService {
         parameters.putAll(config.getParameters());
         parameters.putAll(request.getParameters());
 
+        Duration timeout = coerce(request.getSessionTimeout() , config.getTimeout(), this.sessionTimeout);
+
         this.eventHandler.createSession(EventHandler.Source.builder()
                         .nodeId(node.getId().longValue())
                         .iface(iface.getIpAddress())
                         .build(),
                 request.sessionId,
+                timeout,
+                node.getLabel(),
                 parameters);
         // TODO: This excepts on duplicate session? Should we wait?
 
-        this.eventForwarder.sendNow(new EventBuilder()
+        this.eventForwarder.sendNowSync(new EventBuilder()
                 .setTime(new Date())
                 .setSource(EVENT_SOURCE)
                 .setUei(UEI_RESYNC_STARTED)
@@ -183,7 +209,7 @@ public class TriggerService {
         return result;
     }
 
-    private Future<Void> get(final Request request, final KindConfig config) throws IOException {
+    private Future<Void> get(final Request request, final Configs.Entry config) throws IOException {
         log.info("trigger: get: {}", request);
 
         final var node = this.findNode(request.nodeCriteria);
@@ -200,19 +226,23 @@ public class TriggerService {
         parameters.putAll(config.getParameters());
         parameters.putAll(request.getParameters());
 
-        this.eventHandler.createSession(EventHandler.Source.builder()
-                        .nodeId(node.getId().longValue())
-                        .iface(iface.getIpAddress())
-                        .build(),
-                request.sessionId,
-                parameters);
-        // TODO: This excepts on duplicate session? Should we wait?
+        Duration timeout = coerce(request.getSessionTimeout() , config.getTimeout(), this.sessionTimeout);
 
         return this.snmpClient.walk(agent, new AlarmTableTracker(config))
                 .withDescription("resync-get")
                 .execute()
                 .thenAccept(tracker -> {
-                    this.eventForwarder.sendNow(new EventBuilder()
+                    // TODO: This excepts on duplicate session? Should we wait?
+                    this.eventHandler.createSession(EventHandler.Source.builder()
+                                    .nodeId(node.getId().longValue())
+                                    .iface(iface.getIpAddress())
+                                    .build(),
+                            request.sessionId,
+                            timeout,
+                            node.getLabel(),
+                            parameters);
+
+                    this.eventForwarder.sendNowSync(new EventBuilder()
                             .setTime(new Date())
                             .setSource(EVENT_SOURCE)
                             .setUei(UEI_RESYNC_STARTED)
@@ -228,7 +258,7 @@ public class TriggerService {
                                 .setUei(UEI_RESYNC_ALARM)
                                 .setNodeid(node.getId())
                                 .setInterface(iface.getIpAddress())
-                                .setService(request.kind);
+                                .setService(config.getKind());
 
                         // Apply columns
                         for (final var key : config.getColumns().keySet()) {
@@ -238,10 +268,10 @@ public class TriggerService {
                         // Apply parameters
                         parameters.forEach((k, v) -> event.addParam(k, v.toString()));
 
-                        TriggerService.this.eventForwarder.sendNow(event.getEvent());
+                        TriggerService.this.eventForwarder.sendNowSync(event.getEvent());
                     }
 
-                    this.eventForwarder.sendNow(new EventBuilder()
+                    this.eventForwarder.sendNowSync(new EventBuilder()
                             .setTime(new Date())
                             .setSource(EVENT_SOURCE)
                             .setUei(UEI_RESYNC_FINISHED)
@@ -270,9 +300,9 @@ public class TriggerService {
     private class AlarmTableTracker extends TableTracker {
         public List<Map<String, String>> results = new ArrayList<>();
 
-        private final KindConfig config;
+        private final Configs.Entry config;
 
-        public AlarmTableTracker(final KindConfig config) {
+        public AlarmTableTracker(final Configs.Entry config) {
             super(config.getColumns().values().toArray(SnmpObjId[]::new));
 
             this.config = config;
@@ -319,6 +349,10 @@ public class TriggerService {
             } else {
                 throw new IllegalArgumentException("Unsupported SNMP value type: " + value.getClass());
             }
+        }
+
+        default Duration millis(final long millis) {
+            return Duration.ofMillis(millis);
         }
     }
 }

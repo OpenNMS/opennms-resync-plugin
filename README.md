@@ -84,3 +84,10 @@ The value of this parameter is set as reduction key in the resulting alarm.
 </events>
 ```
 
+## Debugging
+The plugin creates log messages about session creation and every processed event.
+These log messages can be found in karaf.log and are marked with bundle ID `org.opennms.plugins.resync.plugin`.
+
+After triggering, the first log message to expect is the session creation.
+Followed by a message for each received alarm associated with this session.
+Finally, the log will show eiter a successful session termination or a session timeout.
