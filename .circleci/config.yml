@@ -90,9 +90,9 @@ workflows:
             tags:
               only:
                 - /^v.*/
-      - publish-github-release:
+      - publish-cloudsmith:
           context: 
-            - github-releases
+            - cloudsmith-publish-account
           requires:
             - tests
           filters:
@@ -100,7 +100,18 @@ workflows:
               only:
                 - /^v.*/
             branches:
-              ignore: /.*/     
+              ignore: /.*/
+      #- publish-github-release:
+      #    context: 
+      #      - github-releases
+      #    requires:
+      #      - tests
+      #    filters:
+      #      tags:
+      #        only:
+      #          - /^v.*/
+      #      branches:
+      #        ignore: /.*/     
       - merge:
           requires:
             - tests
@@ -176,32 +187,46 @@ jobs:
           paths:
             - output
 
-  publish-github-release:
+  publish-cloudsmith:
     executor: build-executor
     working_directory: ~/project
     steps:
       - attach_workspace:
           at: ~/
+      - cloudsmith/ensure-api-key
+      - cloudsmith/install-cli
       - run:
           name: Install GitHub CLI and Publish release on GitHub
           command: |
-            if [ -z "${CIRCLE_TAG}" ]; then 
-              echo "Skipping step as we don't have a tag!"
-            else 
-              tag=${CIRCLE_TAG}
+            cloudsmith push raw \
+              "opennms/opennms-resync-plugin" "~/output/opennms-resync-plugin-*.kar"
+              --verbose --no-wait-for-sync --republish --error-retry-max 3 \
+              --version "${CIRCLE_TAG}"
 
-              # Install GitHub CLI
-              type -p curl >/dev/null || sudo apt install curl -y
-              curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
-              && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
-              && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-              && sudo apt update \
-              && sudo apt install gh -y
-              
-              gh release create $tag --title "$tag Release" --notes "$tag prerelease!" --prerelease --generate-notes 
-
-              gh release upload $tag ~/output/*.kar
-            fi
+  #publish-github-release:
+  #  executor: build-executor
+  #  working_directory: ~/project
+  #  steps:
+  #    - attach_workspace:
+  #        at: ~/
+  #    - run:
+  #        name: Install GitHub CLI and Publish release on GitHub
+  #        command: |
+  #          if [ -z "${CIRCLE_TAG}" ]; then 
+  #            echo "Skipping step as we don't have a tag!"
+  #          else 
+  #            tag=${CIRCLE_TAG}
+  #            # Install GitHub CLI
+  #            type -p curl >/dev/null || sudo apt install curl -y
+  #            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+  #            && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+  #            && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+  #            && sudo apt update \
+  #            && sudo apt install gh -y
+  #            
+  #            gh release create $tag --title "$tag Release" --notes "$tag prerelease!" --prerelease --generate-notes 
+  #            gh release upload $tag ~/output/*.kar
+  #          fi
 
   merge:
     executor: build-executor
@@ -209,9 +234,6 @@ jobs:
       MAVEN_OPTS: -Xmx1024m
 
     steps:
-      #- add_ssh_keys:
-      #    fingerprints:
-      #      - "27:c8:b4:c2:27:cf:78:ae:5f:1f:3a:ee:d7:bb:e8:ca"
       - shallow-clone
       - branch-management/merge-branch:
           committer_email: "cicd-system@opennms.com"
