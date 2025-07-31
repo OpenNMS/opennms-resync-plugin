@@ -45,7 +45,8 @@ import java.util.function.Supplier;
 public class AlarmForwarder {
 
     private final static String HEADER_RESYNC_MARK_START = "x-opennms-resync-start";
-    private final static String HEADER_RESYNC_MARK_END = "x-opennms-resync-end";
+    private final static String HEADER_RESYNC_MARK_FINISHED = "x-opennms-resync-finished";
+    private final static String HEADER_RESYNC_MARK_TIMEOUT = "x-opennms-resync-timeout";
     private final static String HEADER_RESYNC_MARK_ALARM = "x-opennms-resync-alarm";
 
     private final String topic;
@@ -124,7 +125,7 @@ public class AlarmForwarder {
         log.debug("post: end: {}", msgToJson(message));
 
         final var record = new ProducerRecord<>(this.topic, (byte[]) null, message.toByteArray());
-        record.headers().add(HEADER_RESYNC_MARK_END, new byte[0]);
+        record.headers().add(success ? HEADER_RESYNC_MARK_FINISHED : HEADER_RESYNC_MARK_TIMEOUT, new byte[0]);
 
         this.send(record);
     }
