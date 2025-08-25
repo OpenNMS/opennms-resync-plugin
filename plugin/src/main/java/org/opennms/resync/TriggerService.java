@@ -230,6 +230,7 @@ public class TriggerService {
 
         return this.snmpClient.walk(agent, new AlarmTableTracker(config))
                 .withDescription("resync-get")
+                .withLocation(node.getLocation())
                 .execute()
                 .thenAccept(tracker -> {
                     // TODO: This excepts on duplicate session? Should we wait?
