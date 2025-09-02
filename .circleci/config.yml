@@ -194,7 +194,7 @@ jobs:
       - attach_workspace:
           at: ~/
       - cloudsmith/ensure-api-key
-      - cloudsmith/install-cli
+      # - cloudsmith/install-cli
       - run:
           name: Install GitHub CLI and Publish release on GitHub
           command: |
