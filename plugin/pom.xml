@@ -4,7 +4,7 @@
     <parent>
         <groupId>org.opennms.plugins.resync</groupId>
         <artifactId>opennms-resync-plugin</artifactId>
-        <version>2.0.0-SNAPSHOT</version>
+        <version>1.0.5</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>resync-plugin</artifactId>
