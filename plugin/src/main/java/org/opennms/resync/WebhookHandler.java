@@ -32,6 +32,7 @@ import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.HashMap;
@@ -49,6 +50,14 @@ public interface WebhookHandler {
     @Produces({MediaType.APPLICATION_JSON})
     @Consumes({MediaType.APPLICATION_JSON})
     Response trigger(TriggerRequest request) throws Exception;
+
+    @POST
+    @Path("/actions")
+    @Produces({MediaType.APPLICATION_JSON})
+    @Consumes({MediaType.APPLICATION_JSON})
+    Response performAction(@QueryParam("action") String action,
+                          @QueryParam("type") String type,
+                          ActionRequest request) throws Exception;
 
     @Value
     @Builder
@@ -75,5 +84,28 @@ public interface WebhookHandler {
 
         Long timeout;
 
+    }
+
+    @Value
+    @Builder
+    @Jacksonized
+    class ActionRequest {
+        @NonNull
+        String actionId;
+
+        @NonNull
+        String node;
+
+        @Builder.Default
+        String ipInterface = null;
+
+        @Builder.Default
+        String kind = null;
+
+        @NonNull
+        @Builder.Default
+        Map<String, Object> parameters = new HashMap<>();
+
+        Long timeout;
     }
 }

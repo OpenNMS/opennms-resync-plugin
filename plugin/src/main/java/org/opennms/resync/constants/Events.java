@@ -29,4 +29,7 @@ public class Events {
     public static final String UEI_RESYNC_FINISHED = "uei.opennms.org/resync/finished";
     public static final String UEI_RESYNC_TIMEOUT = "uei.opennms.org/resync/timeout";
     public static final String UEI_RESYNC_ALARM = "uei.opennms.org/resync/alarm";
+
+    // Action-related events
+    public static final String UEI_ACTION_RESPONSE = "uei.opennms.org/action/response";
 }

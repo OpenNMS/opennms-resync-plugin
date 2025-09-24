@@ -108,6 +108,7 @@ message Alarm {
   uint64 last_update_time = 25;
 
   string resync_id = 536870911;
+  string action_id = 536870910;
 }
 
 message AlarmFeedback {
@@ -243,4 +244,25 @@ message ResyncEnd {
   map<string, string> parameters = 3;
 
   string resync_id = 536870911;
+}
+
+message ActionStart {
+  uint64 node_id = 1;
+  string action_type = 2;  // ACK, UNACK, TERM, UNDOTERM
+  string operation_type = 3; // SET, GET
+
+  map<string, string> parameters = 4;
+
+  string action_id = 536870910;
+}
+
+message ActionEnd {
+  uint64 node_id = 1;
+  bool success = 2;
+  string action_type = 3;  // ACK, UNACK, TERM, UNDOTERM
+  string operation_type = 4; // SET, GET
+
+  map<string, string> parameters = 5;
+
+  string action_id = 536870910;
 }

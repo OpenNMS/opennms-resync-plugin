@@ -63,6 +63,7 @@ import static org.opennms.resync.constants.Events.EVENT_SOURCE;
 import static org.opennms.resync.constants.Events.UEI_RESYNC_ALARM;
 import static org.opennms.resync.constants.Events.UEI_RESYNC_FINISHED;
 import static org.opennms.resync.constants.Events.UEI_RESYNC_STARTED;
+import static org.opennms.resync.constants.Events.UEI_ACTION_RESPONSE;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -114,6 +115,34 @@ public class TriggerService {
         Duration sessionTimeout = null;
     }
 
+    @Value
+    @Builder
+    public static class ActionRequest {
+        @NonNull
+        String nodeCriteria;
+
+        @Builder.Default
+        InetAddress ipInterface = null;
+
+        @NonNull
+        String actionId;
+
+        String kind;
+
+        @NonNull
+        String actionType; // ACK, UNACK, TERM, UNDOTERM
+
+        @NonNull
+        String operationType; // SET, GET
+
+        @NonNull
+        @Builder.Default
+        Map<String, Object> parameters = new HashMap<>();
+
+        @Builder.Default
+        Duration sessionTimeout = null;
+    }
+
     public void setSessionTimeout(Long timeout) {
         this.sessionTimeout = Duration.ofMillis(timeout);
     }
@@ -127,6 +156,21 @@ public class TriggerService {
             case SET: return this.set(request, config);
             case GET: return this.get(request, config);
             default: throw new IllegalStateException("Unsupported mode: " + config.getMode());
+        }
+    }
+
+    public Future<Void> performAction(final ActionRequest request) throws IOException {
+        log.info("performAction: actionType={}, operationType={}, request={}",
+                request.actionType, request.operationType, request);
+
+        final var node = this.findNode(request.nodeCriteria);
+
+        final var config = this.configs.getActionConfig(node.getLabel(), request.kind, request.actionType);
+
+        switch (request.operationType) {
+            case "SET": return this.performActionSet(request, config);
+            case "GET": return this.performActionGet(request, config);
+            default: throw new IllegalArgumentException("Unsupported operation type: " + request.operationType);
         }
     }
 
@@ -282,6 +326,104 @@ public class TriggerService {
                 });
     }
 
+    private Future<Void> performActionSet(final ActionRequest request, final Configs.Entry config) throws IOException {
+        log.info("performActionSet: {}", request);
+
+        final var node = this.findNode(request.nodeCriteria);
+
+        final var iface = (request.ipInterface != null
+                ? node.getInterfaceByIp(request.ipInterface)
+                : node.getIpInterfaces().stream().findFirst())
+                .orElseThrow(() -> new NoSuchElementException("Requested interface not found on node"));
+
+        final var agent = this.snmpAgentConfigFactory.getAgentConfig(iface.getIpAddress(), node.getLocation());
+
+        final var parameters = new HashMap<String, Object>();
+        parameters.putAll(config.getParameters());
+        parameters.putAll(request.getParameters());
+
+        Duration timeout = coerce(request.getSessionTimeout(), config.getTimeout(), this.sessionTimeout);
+
+        final var result = new CompletableFuture<Void>();
+
+        // Resolve all columns to attributes
+        final var oids = new ArrayList<SnmpObjId>(config.getColumns().size());
+        final var vals = new ArrayList<SnmpValue>(config.getColumns().size());
+
+        for (final var e : config.getColumns().entrySet()) {
+            var value = parameters.get(e.getKey());
+            if (value == null) {
+                throw new IllegalArgumentException("No value defined for parameter: " + e.getKey());
+            }
+
+            oids.add(e.getValue());
+            vals.add(TriggerMapper.INSTANCE.snmpValue(value));
+        }
+
+        final var response = this.snmpClient.set(agent, oids.toArray(SnmpObjId[]::new), vals.toArray(SnmpValue[]::new))
+                .withLocation(node.getLocation())
+                .execute();
+
+        response.whenComplete((ok, ex) -> {
+            if (ex != null) {
+                log.error("Action SET failed for actionId: {}", request.actionId, ex);
+                result.completeExceptionally(ex);
+            } else {
+                log.info("Action SET completed successfully for actionId: {}", request.actionId);
+                result.complete(null);
+            }
+        });
+
+        return result;
+    }
+
+    private Future<Void> performActionGet(final ActionRequest request, final Configs.Entry config) throws IOException {
+        log.info("performActionGet: {}", request);
+
+        final var node = this.findNode(request.nodeCriteria);
+
+        final var iface = (request.ipInterface != null
+                ? node.getInterfaceByIp(request.ipInterface)
+                : node.getIpInterfaces().stream().findFirst())
+                .orElseThrow(() -> new NoSuchElementException("Requested interface not found on node"));
+
+        final var agent = this.snmpAgentConfigFactory.getAgentConfig(iface.getIpAddress(), node.getLocation());
+
+        final var parameters = new HashMap<String, Object>();
+        parameters.putAll(config.getParameters());
+        parameters.putAll(request.getParameters());
+
+        return this.snmpClient.walk(agent, new ActionTableTracker(config))
+                .withDescription("action-get")
+                .withLocation(node.getLocation())
+                .execute()
+                .thenAccept(tracker -> {
+                    // Generate events for each result from GET operation
+                    for (final var result : tracker.results) {
+                        final var event = new EventBuilder()
+                                .setTime(new Date())
+                                .setSource(EVENT_SOURCE)
+                                .setUei(UEI_ACTION_RESPONSE)  // New UEI for action responses
+                                .setNodeid(node.getId())
+                                .setInterface(iface.getIpAddress())
+                                .setService(config.getKind());
+
+                        // Apply columns
+                        for (final var key : config.getColumns().keySet()) {
+                            event.addParam(key, result.get(key));
+                        }
+
+                        // Apply parameters including actionId
+                        parameters.forEach((k, v) -> event.addParam(k, v.toString()));
+                        event.addParam("actionId", request.actionId);
+                        event.addParam("actionType", request.actionType);
+
+                        log.info("Sending action GET response event for actionId: {}", request.actionId);
+                        TriggerService.this.eventForwarder.sendNowSync(event.getEvent());
+                    }
+                });
+    }
+
     private Node findNode(final String nodeCriteria) {
         Node node;
 
@@ -304,6 +446,38 @@ public class TriggerService {
         private final Configs.Entry config;
 
         public AlarmTableTracker(final Configs.Entry config) {
+            super(config.getColumns().values().toArray(SnmpObjId[]::new));
+
+            this.config = config;
+        }
+
+        @Override
+        public void rowCompleted(final SnmpRowResult row) {
+            super.rowCompleted(row);
+
+            final var result = this.config.getColumns()
+                    .entrySet().stream()
+                    .map(e -> {
+                        final var value = row.getValue(e.getValue());
+                        if (value == null) {
+                            return null;
+                        }
+
+                        return new AbstractMap.SimpleImmutableEntry<>(e.getKey(), value.toDisplayString());
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+            this.results.add(result);
+        }
+    }
+
+    private class ActionTableTracker extends TableTracker {
+        public List<Map<String, String>> results = new ArrayList<>();
+
+        private final Configs.Entry config;
+
+        public ActionTableTracker(final Configs.Entry config) {
             super(config.getColumns().values().toArray(SnmpObjId[]::new));
 
             this.config = config;

@@ -49,6 +49,12 @@ public class AlarmForwarder {
     private final static String HEADER_RESYNC_MARK_TIMEOUT = "x-opennms-resync-timeout";
     private final static String HEADER_RESYNC_MARK_ALARM = "x-opennms-resync-alarm";
 
+    // Action-related headers
+    private final static String HEADER_ACTION_MARK_START = "x-opennms-action-start";
+    private final static String HEADER_ACTION_MARK_FINISHED = "x-opennms-action-finished";
+    private final static String HEADER_ACTION_MARK_FAILED = "x-opennms-action-failed";
+    private final static String HEADER_ACTION_MARK_RESPONSE = "x-opennms-action-response";
+
     private final String topic;
 
     private final KafkaProducer<byte[], byte[]> producer;
@@ -141,6 +147,58 @@ public class AlarmForwarder {
 
         final var record = new ProducerRecord<>(this.topic, key, updatedAlarm.toByteArray());
         record.headers().add(HEADER_RESYNC_MARK_ALARM, new byte[0]);
+
+        this.send(record);
+    }
+
+    public void postActionStart(final String actionId, final long nodeId, final String actionType,
+                               final String operationType, final Map<String, String> parameters) {
+        final var message = Resync.ActionStart.newBuilder()
+                .setNodeId(nodeId)
+                .setActionId(actionId)
+                .setActionType(actionType)
+                .setOperationType(operationType)
+                .putAllParameters(parameters)
+                .build();
+
+        log.debug("post: action start: {}", msgToJson(message));
+
+        final var record = new ProducerRecord<>(this.topic, (byte[]) null, message.toByteArray());
+        record.headers().add(HEADER_ACTION_MARK_START, new byte[0]);
+
+        this.send(record);
+    }
+
+    public void postActionEnd(final String actionId, final long nodeId, final String actionType,
+                             final String operationType, final Map<String, String> parameters, final boolean success) {
+        final var message = Resync.ActionEnd.newBuilder()
+                .setNodeId(nodeId)
+                .setActionId(actionId)
+                .setActionType(actionType)
+                .setOperationType(operationType)
+                .setSuccess(success)
+                .putAllParameters(parameters)
+                .build();
+
+        log.debug("post: action end: {}", msgToJson(message));
+
+        final var record = new ProducerRecord<>(this.topic, (byte[]) null, message.toByteArray());
+        record.headers().add(success ? HEADER_ACTION_MARK_FINISHED : HEADER_ACTION_MARK_FAILED, new byte[0]);
+
+        this.send(record);
+    }
+
+    public void postActionResponse(final String actionId, final Resync.Alarm alarm) {
+        final var updatedAlarm = alarm.toBuilder()
+                .setActionId(actionId)
+                .build();
+
+        log.debug("post: action response: {}", msgToJson(updatedAlarm));
+
+        final var key = alarm.getReductionKey().getBytes(StandardCharsets.UTF_8);
+
+        final var record = new ProducerRecord<>(this.topic, key, updatedAlarm.toByteArray());
+        record.headers().add(HEADER_ACTION_MARK_RESPONSE, new byte[0]);
 
         this.send(record);
     }

@@ -75,6 +75,41 @@ public class Configs {
                 .build();
     }
 
+    public Entry getActionConfig(final String node, String kind, final String actionType) throws IOException {
+        final var path = Paths.get(System.getProperty("opennms.home"), "etc", "resync.json");
+
+        final Config config;
+        try (final var reader = Files.newBufferedReader(path)) {
+            config = OBJECT_MAPPER.readValue(reader, new TypeReference<>() {});
+        }
+
+        if (kind == null) {
+            final NodeConfig nodeConfig = config.getNodes().get(node);
+            if (nodeConfig == null) {
+                throw new IllegalArgumentException("No config found for node: " + node);
+            }
+
+            kind = nodeConfig.getKind();
+        }
+
+        final var kindConfig = config.getKinds().get(kind);
+        if (kindConfig == null) {
+            throw new IllegalArgumentException("No config found for kind: " + kind);
+        }
+
+        // For action configurations, we need to find the specific action within the kind
+        // For now, return the same config but in the future we might have action-specific configs
+        return Entry.builder()
+                .kind(kind)
+                .mode(KindConfig.Mode.SET) // Actions are typically SET operations by default
+                .columns(kindConfig.getColumns())
+                .parameters(kindConfig.getParameters())
+                .timeout(kindConfig.getTimeout() != null
+                        ? Duration.ofMillis(kindConfig.getTimeout())
+                        : null)
+                .build();
+    }
+
     @Value
     @Builder
     public static class Entry {
