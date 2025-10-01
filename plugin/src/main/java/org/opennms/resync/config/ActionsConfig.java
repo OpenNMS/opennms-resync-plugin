@@ -20,16 +20,19 @@
  * License.
  */
 
-package org.opennms.resync.constants;
+package org.opennms.resync.config;
 
-public class Events {
-    public static final String EVENT_SOURCE = "opennms-resync";
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Data;
 
-    public static final String UEI_RESYNC_STARTED = "uei.opennms.org/resync/started";
-    public static final String UEI_RESYNC_FINISHED = "uei.opennms.org/resync/finished";
-    public static final String UEI_RESYNC_TIMEOUT = "uei.opennms.org/resync/timeout";
-    public static final String UEI_RESYNC_ALARM = "uei.opennms.org/resync/alarm";
+import java.util.LinkedHashMap;
+import java.util.Map;
 
-    // Action-related events
-    public static final String UEI_ACTION_RESPONSE = "uei.opennms.org/plugin/action/response";
+@Data
+public class ActionsConfig {
+    @JsonProperty("nodes")
+    private Map<String, NodeConfig> nodes = new LinkedHashMap<>();
+
+    @JsonProperty("kinds")
+    private Map<String, ActionKindConfig> kinds = new LinkedHashMap<>();
 }

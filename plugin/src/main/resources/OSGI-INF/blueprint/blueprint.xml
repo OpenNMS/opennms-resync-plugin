@@ -42,6 +42,9 @@
     <bean id="configs" class="org.opennms.resync.config.Configs">
     </bean>
 
+    <bean id="actionConfigs" class="org.opennms.resync.config.ActionConfigs">
+    </bean>
+
     <bean id="alarmForwarder" class="org.opennms.resync.AlarmForwarder">
         <argument ref="configAdmin" />
     </bean>
@@ -69,6 +72,24 @@
         <argument ref="trigger"/>
     </bean>
     <service interface="org.opennms.resync.WebhookHandler" ref="webhookHandlerImpl">
+        <service-properties>
+            <entry key="application-path" value="/rest"/>
+        </service-properties>
+    </service>
+
+    <bean id="actionService" class="org.opennms.resync.ActionService">
+        <argument ref="snmpClient"/>
+        <argument ref="snmpAgentConfigFactory"/>
+        <argument ref="eventForwarder"/>
+        <argument ref="nodeDao"/>
+        <argument ref="actionConfigs"/>
+    </bean>
+    <service interface="org.opennms.resync.ActionService" ref="actionService"/>
+
+    <bean id="actionHandlerImpl" class="org.opennms.resync.ActionHandlerImpl">
+        <argument ref="actionService"/>
+    </bean>
+    <service interface="org.opennms.resync.ActionHandler" ref="actionHandlerImpl">
         <service-properties>
             <entry key="application-path" value="/rest"/>
         </service-properties>
