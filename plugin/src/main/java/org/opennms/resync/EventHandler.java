@@ -302,6 +302,8 @@ public class EventHandler implements EventListener {
                 event.getNodeid() != null ? event.getNodeid() : "0",
                 actionId);
         alarm.setReductionKey(reductionKey);
+        
+        alarm.setActionId(actionId);
 
         // Build event details
         final var alarmEvent = Resync.Event.newBuilder();
@@ -326,9 +328,10 @@ public class EventHandler implements EventListener {
 
         alarm.setLastEvent(alarmEvent);
 
-        // Post directly to Kafka
-        log.info("Posting action response to Kafka: actionId={}, nodeId={}", actionId, event.getNodeid());
-        this.alarmForwarder.postAlarm(actionId, alarm.build());
+        final Resync.Alarm finalAlarm = alarm.build();
+
+        log.info("Posting action response to Kafka: actionId={}, nodeId={}, reductionKey={}", actionId, event.getNodeid(), reductionKey);
+        this.alarmForwarder.postActionAlarm(finalAlarm);
     }
 
     @Value
