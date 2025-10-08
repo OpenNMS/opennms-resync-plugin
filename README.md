@@ -1,29 +1,49 @@
-# OpenNMS OpenNMS Resync Plugin Plugin
+# OpenNMS Resync Plugin
+
+This plugin provides two main features:
+
+1. **Resync Operations** - Synchronize alarm states between OpenNMS and external systems
+2. **Alarm Actions** - Execute alarm management operations (ACK/UNACK/TERM/UNDOTERM) on network devices via SNMP
+
+## Installation
 
 Build and install the plugin into your local Maven repository using:
 
-```
+```bash
 mvn clean install
 ```
 
-Install the .kar file
-```
+Install the .kar file:
+```bash
 cp assembly/kar/target/opennms-resync-plugin.kar /opt/opennms/deploy/
 ```
 
 From the OpenNMS Karaf shell:
-```
+```bash
 feature:install opennms-plugins-resync
 ```
 
+## Features
+
+### Resync Operations
 
 Once installed, the plugin makes the following Karaf shell commands available:
-* opennms-resync:set
-* opennms-resync:get
+* `opennms-resync:set`
+* `opennms-resync:get`
 
-You can also access the REST endpoint mounted by the plugin:
-* `http://localhost:8980/opennms/rest/resync/ping`: Check if the plugin is installed
-* `http://localhost:8980/opennms/rest/resync/trigger`: To trigger a resync operation
+REST endpoints:
+* `http://localhost:8980/opennms/rest/resync/ping` - Check if the plugin is installed
+* `http://localhost:8980/opennms/rest/resync/trigger` - Trigger a resync operation
+
+### Alarm Actions
+
+REST endpoints:
+* `http://localhost:8980/opennms/rest/actions/ping` - Health check
+* `http://localhost:8980/opennms/rest/actions` - Execute alarm actions (ACK/UNACK/TERM/UNDOTERM)
+
+**See [ALARM_ACTIONS_README.md](ALARM_ACTIONS_README.md) for detailed alarm actions documentation.**
+
+## Resync Configuration
 
 The `trigger`-endpoint provides two modes which can be selected by the `mode` field: `SET` or `GET`.
 
