@@ -55,13 +55,11 @@ public interface ActionHandler {
                           ActionRequest request) throws Exception;
 
     @Data
-    @Builder
     class ActionRequest {
         String actionId;
         String node;
         String ipInterface;
         String kind;
-        @Builder.Default
         Map<String, Object> parameters = new HashMap<>();
     }
 
