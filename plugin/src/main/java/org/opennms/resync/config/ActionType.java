@@ -20,16 +20,11 @@
  * License.
  */
 
-package org.opennms.resync.constants;
+package org.opennms.resync.config;
 
-public class Events {
-    public static final String EVENT_SOURCE = "opennms-resync";
-
-    public static final String UEI_RESYNC_STARTED = "uei.opennms.org/resync/started";
-    public static final String UEI_RESYNC_FINISHED = "uei.opennms.org/resync/finished";
-    public static final String UEI_RESYNC_TIMEOUT = "uei.opennms.org/resync/timeout";
-    public static final String UEI_RESYNC_ALARM = "uei.opennms.org/resync/alarm";
-
-    // Action-related events
-    public static final String UEI_ACTION_RESPONSE = "uei.opennms.org/plugin/action/response";
+public enum ActionType {
+    ACK,
+    UNACK,
+    TERM,
+    UNDOTERM
 }

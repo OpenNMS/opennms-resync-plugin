@@ -145,6 +145,15 @@ public class AlarmForwarder {
         this.send(record);
     }
 
+    public void postActionAlarm(final Resync.Alarm alarm) {
+        log.debug("post: action alarm: {}", msgToJson(alarm));
+
+        final var key = alarm.getReductionKey().getBytes(StandardCharsets.UTF_8);
+        final var record = new ProducerRecord<>(this.topic, key, alarm.toByteArray());
+
+        this.send(record);
+    }
+
     private static <T> T runWithGivenClassLoader(final Supplier<T> supplier, ClassLoader classLoader) {
         Objects.requireNonNull(supplier);
         final ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();

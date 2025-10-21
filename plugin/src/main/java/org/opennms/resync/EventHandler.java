@@ -54,6 +54,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static org.opennms.resync.constants.Events.EVENT_SOURCE;
+import static org.opennms.resync.constants.Events.UEI_ACTION_RESPONSE;
 import static org.opennms.resync.constants.Events.UEI_RESYNC_ALARM;
 import static org.opennms.resync.constants.Events.UEI_RESYNC_FINISHED;
 import static org.opennms.resync.constants.Events.UEI_RESYNC_STARTED;
@@ -69,7 +70,8 @@ public class EventHandler implements EventListener {
             UEI_RESYNC_STARTED,
             UEI_RESYNC_FINISHED,
             UEI_RESYNC_TIMEOUT,
-            UEI_RESYNC_ALARM
+            UEI_RESYNC_ALARM,
+            UEI_ACTION_RESPONSE
     );
 
     @NonNull
@@ -140,6 +142,9 @@ public class EventHandler implements EventListener {
                 break;
             case UEI_RESYNC_ALARM:
                 this.onAlarm(source, event);
+                break;
+            case UEI_ACTION_RESPONSE:
+                this.onActionResponse(event);
                 break;
             default:
                 log.warn("Unknown UEI: {}", event.getUei());
@@ -255,6 +260,78 @@ public class EventHandler implements EventListener {
         alarm.setLastEvent(alarmEvent);
 
         this.alarmForwarder.postAlarm(session.sessionId, alarm.build());
+    }
+
+    /**
+     * Handle action response events from GET requests
+     * These are standalone events not part of a session
+     */
+    private synchronized void onActionResponse(final IEvent event) {
+        log.info("action response event: {}", event.getUei());
+
+        // Extract actionId from event parameters
+        final String actionId = Optional.ofNullable(event.getParm("actionId"))
+                .map(IParm::getValue)
+                .map(IValue::getContent)
+                .orElse("unknown");
+
+        // Build alarm from event
+        final var alarm = Resync.Alarm.newBuilder();
+        alarm.setUei(event.getUei());
+        alarm.setCount(1);
+
+        if (event.getNodeid() != null) {
+            alarm.setNodeCriteria(Resync.NodeCriteria.newBuilder()
+                    .setId(event.getNodeid())
+                    .build());
+        }
+
+        applyNotNull(event.getInterface(), alarm::setIpAddress);
+        applyNotNull(event.getDescr(), alarm::setDescription);
+        applyNotNull(event.getLogmsg() != null ? event.getLogmsg().getContent() : null, alarm::setLogMessage);
+        applyNotNull(event.getTime(), alarm::setFirstEventTime, Date::getTime);
+        applyNotNull(event.getTime(), alarm::setLastEventTime, Date::getTime);
+        applyNotNull(event.getIfIndex(), alarm::setIfIndex);
+        applyNotNull(event.getOperinstruct(), alarm::setOperatorInstructions);
+        applyNotNull(event.getService(), alarm::setServiceName);
+        applyNotNull(event.getSeverity(), alarm::setSeverity, s -> Resync.Severity.valueOf(s.toUpperCase()));
+
+        // Use actionId and event params to create reduction key
+        final String reductionKey = String.format("%s:%s:%s",
+                event.getUei(),
+                event.getNodeid() != null ? event.getNodeid() : "0",
+                actionId);
+        alarm.setReductionKey(reductionKey);
+        
+        alarm.setActionId(actionId);
+
+        // Build event details
+        final var alarmEvent = Resync.Event.newBuilder();
+        applyNotNull(event.getUei(), alarmEvent::setUei);
+        applyNotNull(event.getTime(), alarmEvent::setTime, Date::getTime);
+        applyNotNull(event.getSource(), alarmEvent::setSource);
+        applyNotNull(event.getCreationTime(), alarmEvent::setCreateTime, Date::getTime);
+        applyNotNull(event.getDescr(), alarmEvent::setDescription);
+        applyNotNull(event.getLogmsg() != null ? event.getLogmsg().getContent() : null, alarmEvent::setLogMessage);
+        applyNotNull(event.getSeverity(), alarmEvent::setSeverity, s -> Resync.Severity.valueOf(s.toUpperCase()));
+
+        // Add all event parameters
+        event.getParmCollection().stream()
+                .map(param -> {
+                    final var builder = Resync.EventParameter.newBuilder();
+                    applyNotNull(param.getParmName(), builder::setName);
+                    applyNotNull(param.getValue() != null ? param.getValue().getType() : null, builder::setType);
+                    applyNotNull(param.getValue() != null ? param.getValue().getContent() : null, builder::setValue);
+                    return builder.build();
+                })
+                .forEach(alarmEvent::addParameter);
+
+        alarm.setLastEvent(alarmEvent);
+
+        final Resync.Alarm finalAlarm = alarm.build();
+
+        log.info("Posting action response to Kafka: actionId={}, nodeId={}, reductionKey={}", actionId, event.getNodeid(), reductionKey);
+        this.alarmForwarder.postActionAlarm(finalAlarm);
     }
 
     @Value

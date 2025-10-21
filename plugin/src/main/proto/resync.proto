@@ -107,6 +107,7 @@ message Alarm {
   TroubleTicketState trouble_ticket_state = 24;
   uint64 last_update_time = 25;
 
+  string action_id = 536870910;
   string resync_id = 536870911;
 }
 
