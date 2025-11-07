@@ -219,11 +219,29 @@ public class ActionService {
                 .withLocation(node.getLocation())
                 .execute()
                 .thenApply(tracker -> {
-                    log.info("Action GET walk completed: action={}, node={}, actionId={}, rows={}",
-                            request.actionType, node.getLabel(), request.actionId, tracker.results.size());
+                    // Filter results based on index parameter if provided
+                    List<Map<String, String>> filteredResults = tracker.results;
+
+                    // Get the first column key (index column)
+                    String indexKey = config.getColumns().keySet().iterator().next();
+
+                    // If user provided index parameter, filter to matching rows only
+                    Object indexValue = request.getParameters().get(indexKey);
+                    if (indexValue != null) {
+                        String indexStr = indexValue.toString();
+                        filteredResults = tracker.results.stream()
+                                .filter(result -> indexStr.equals(result.get(indexKey)))
+                                .collect(Collectors.toList());
+
+                        log.info("Action GET filtered by {}={}: action={}, node={}, actionId={}, filteredRows={}",
+                                indexKey, indexStr, request.actionType, node.getLabel(), request.actionId, filteredResults.size());
+                    } else {
+                        log.info("Action GET walk completed: action={}, node={}, actionId={}, rows={}",
+                                request.actionType, node.getLabel(), request.actionId, tracker.results.size());
+                    }
 
                     // Generate event for each result row
-                    for (final var result : tracker.results) {
+                    for (final var result : filteredResults) {
                         final var event = new EventBuilder()
                                 .setTime(new Date())
                                 .setSource(EVENT_SOURCE)
@@ -240,8 +258,12 @@ public class ActionService {
                             event.addParam(key, result.get(key));
                         }
 
-                        // Apply parameters
-                        parameters.forEach((k, v) -> event.addParam(k, v.toString()));
+                        // Apply parameters that are NOT already in the SNMP result (avoid duplicates)
+                        parameters.forEach((k, v) -> {
+                            if (!result.containsKey(k)) {
+                                event.addParam(k, v.toString());
+                            }
+                        });
 
                         this.eventForwarder.sendNowSync(event.getEvent());
                     }
@@ -250,7 +272,7 @@ public class ActionService {
                     resultMap.put("status", "success");
                     resultMap.put("actionId", request.actionId);
                     resultMap.put("actionType", request.actionType.name());
-                    resultMap.put("rowCount", tracker.results.size());
+                    resultMap.put("rowCount", filteredResults.size());
                     return resultMap;
                 });
     }
