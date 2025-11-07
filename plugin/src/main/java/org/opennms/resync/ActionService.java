@@ -140,17 +140,43 @@ public class ActionService {
         final var result = new CompletableFuture<Map<String, Object>>();
 
         // Resolve all columns to attributes
-        final var oids = new ArrayList<SnmpObjId>(config.getColumns().size());
-        final var vals = new ArrayList<SnmpValue>(config.getColumns().size());
+        final var oids = new ArrayList<SnmpObjId>();
+        final var vals = new ArrayList<SnmpValue>();
 
-        for (final var e : config.getColumns().entrySet()) {
-            var value = parameters.get(e.getKey());
+        if (config.getColumns().size() == 1) {
+            // Single column: use OID as-is (scalar or pre-completed table OID)
+            var entry = config.getColumns().entrySet().iterator().next();
+            var value = parameters.get(entry.getKey());
             if (value == null) {
-                throw new IllegalArgumentException("No value defined for parameter: " + e.getKey());
+                throw new IllegalArgumentException("No value defined for parameter: " + entry.getKey());
             }
-
-            oids.add(e.getValue());
+            oids.add(entry.getValue());
             vals.add(ActionMapper.INSTANCE.snmpValue(value));
+        } else {
+            // Multi-column: first column = index, append instance to data columns
+            String indexKey = config.getColumns().keySet().iterator().next();
+            Object instanceObj = parameters.get(indexKey);
+            if (instanceObj == null) {
+                throw new IllegalArgumentException("No value defined for index parameter: " + indexKey);
+            }
+            String instance = instanceObj.toString();
+
+            for (final var e : config.getColumns().entrySet()) {
+                if (e.getKey().equals(indexKey)) {
+                    // Skip index column - don't SET the index itself
+                    continue;
+                }
+
+                var value = parameters.get(e.getKey());
+                if (value == null) {
+                    throw new IllegalArgumentException("No value defined for parameter: " + e.getKey());
+                }
+
+                // Append instance suffix to build complete OID
+                SnmpObjId completeOid = SnmpObjId.get(e.getValue().toString() + "." + instance);
+                oids.add(completeOid);
+                vals.add(ActionMapper.INSTANCE.snmpValue(value));
+            }
         }
 
         final var response = this.snmpClient.set(agent, oids.toArray(SnmpObjId[]::new), vals.toArray(SnmpValue[]::new))
@@ -290,10 +316,18 @@ public class ActionService {
         }
 
         default SnmpValue snmpValue(final Object value) {
-            if (value instanceof String) {
-                return new Snmp4JValueFactory().getOctetString(((String) value).getBytes(StandardCharsets.UTF_8));
-            } else if (value instanceof Integer) {
-                return new Snmp4JValueFactory().getInt32(((Integer) value));
+            if (value instanceof Integer) {
+                return new Snmp4JValueFactory().getInt32((Integer) value);
+            } else if (value instanceof String) {
+                String str = (String) value;
+                // Try parsing as integer first (supports "1", "2", etc. in JSON config)
+                try {
+                    int intValue = Integer.parseInt(str);
+                    return new Snmp4JValueFactory().getInt32(intValue);
+                } catch (NumberFormatException e) {
+                    // Not a number - use as string
+                    return new Snmp4JValueFactory().getOctetString(str.getBytes(StandardCharsets.UTF_8));
+                }
             } else {
                 throw new IllegalArgumentException("Unsupported SNMP value type: " + value.getClass());
             }
