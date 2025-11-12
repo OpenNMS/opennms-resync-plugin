@@ -26,5 +26,7 @@ public enum ActionType {
     ACK,
     UNACK,
     TERM,
-    UNDOTERM
+    UNDOTERM,
+    COMMENT,
+    OPERATOR_NOTE
 }
