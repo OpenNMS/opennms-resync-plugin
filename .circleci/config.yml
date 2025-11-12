@@ -39,7 +39,7 @@ commands:
             command: |
               git clone  "https://github.com/OpenNMS/opennms.git" ~/opennms
               cd ~/opennms
-              git checkout opennms-33.0.10-1
+              git checkout foundation-2024
               cd -
               #if [ -n "${CIRCLE_TAG}" ]; then
               #  git checkout --force "${CIRCLE_TAG}"
