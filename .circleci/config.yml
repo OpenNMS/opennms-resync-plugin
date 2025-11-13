@@ -62,7 +62,9 @@ commands:
             cd ~/opennms
             #ulimit -n 1048576
             export MAVEN_OPTS="-Xmx8g -XX:ReservedCodeCacheSize=1g -XX:+TieredCompilation"
-            ./maven/bin/mvn -DskipITs=true -DskipTests=true -Dbuild.skip.tarball=true  install
+            ./maven/bin/mvn -DskipITs=true -DskipTests=true -Dbuild.skip.tarball=true  install -pl '!ui,!opennms-webapp,!opennms-webapp-rest,!opennms-assemblies,!features/vaadin,!features/vaadin-components,!features/vaadin-dashboard,!features/vaadin-dashlets,!features/vaadin-jmxconfiggenerator,!features/vaadin-snmp-events-and-metrics,!features/vaadin-surveillance-views,!features/root-webapp'
+
+  
             #mvn -DskipTests=true -Dbuild.skip.tarball=true -DskipITs=true  -pl :org.opennms.features.collection,:org.opennms.core.snmp.api,:org.opennms.core.ipc.rpc.utils,:org.opennms.core.ipc.rpc.xml,:org.opennms.core,:org.opennms.core.api,:org.opennms.features.collection.api,:org.opennms.features.kafka.producer,:org.opennms.container -am install
             cd -
             echo "Building RESYNC" 
